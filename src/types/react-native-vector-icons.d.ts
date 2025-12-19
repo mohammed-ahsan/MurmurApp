@@ -1,4 +1,4 @@
-declare module 'react-native-vector-icons/MaterialIcons' {
+declare module '@expo/vector-icons/MaterialIcons' {
   import { Component } from 'react';
   import { ViewStyle, TextStyle } from 'react-native';
 

@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   View,
   Text,
@@ -16,27 +16,86 @@ import { useRouter } from 'expo-router';
 // Hooks
 import { useAuth } from '../../store/hooks';
 
+interface FormErrors {
+  identifier?: string;
+  password?: string;
+}
+
 const LoginScreen = () => {
   const [identifier, setIdentifier] = useState('');
   const [password, setPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
+  const [formErrors, setFormErrors] = useState<FormErrors>({});
+  const [isFormValid, setIsFormValid] = useState(false);
   
   const router = useRouter();
   const { login, isLoading, error } = useAuth();
+  console.log(error,"error login")
+
+  // Validate individual fields
+  const validateField = (field: string, value: string): string | undefined => {
+    switch (field) {
+      case 'identifier':
+        if (!value.trim()) {
+          return 'Email or username is required';
+        }
+        if (value.trim().length < 3) {
+          return 'Must be at least 3 characters long';
+        }
+        break;
+      case 'password':
+        if (!value.trim()) {
+          return 'Password is required';
+        }
+        if (value.length < 1) {
+          return 'Password cannot be empty';
+        }
+        break;
+    }
+    return undefined;
+  };
+
+  // Validate entire form
+  const validateForm = (): boolean => {
+    const errors: FormErrors = {};
+    
+    const identifierError = validateField('identifier', identifier);
+    if (identifierError) errors.identifier = identifierError;
+    
+    const passwordError = validateField('password', password);
+    if (passwordError) errors.password = passwordError;
+    
+    setFormErrors(errors);
+    return Object.keys(errors).length === 0;
+  };
+
+  // Update form validity when fields change
+  useEffect(() => {
+    const isValid = identifier.trim().length >= 3 && password.trim().length > 0;
+    setIsFormValid(isValid);
+    
+    // Clear specific field error when user starts typing
+    if (identifier.trim().length >= 3 && formErrors.identifier) {
+      setFormErrors(prev => ({ ...prev, identifier: undefined }));
+    }
+    if (password.trim().length > 0 && formErrors.password) {
+      setFormErrors(prev => ({ ...prev, password: undefined }));
+    }
+  }, [identifier, password]);
 
   const handleLogin = async () => {
-    if (!identifier.trim() || !password.trim()) {
-      Alert.alert('Error', 'Please fill in all fields');
+    // Clear previous errors
+    setFormErrors({});
+    
+    if (!validateForm()) {
       return;
     }
 
     try {
-      const result = await login({ identifier: identifier.trim(), password });
+      await login({ identifier: identifier.trim(), password });
       
       // Login successful - navigate to main app
-      if (result) {
-        router.replace('/(tabs)');
-      }
+      // Navigation will be handled by the AuthChecker component based on auth state
     } catch (err: any) {
       Alert.alert('Login Failed', err.message || 'An error occurred during login');
     }
@@ -61,7 +120,10 @@ const LoginScreen = () => {
             <View style={styles.inputContainer}>
               <Text style={styles.label}>Email or Username</Text>
               <TextInput
-                style={styles.input}
+                style={[
+                  styles.input,
+                  formErrors.identifier ? styles.inputError : null
+                ]}
                 value={identifier}
                 onChangeText={setIdentifier}
                 placeholder="Enter your email or username"
@@ -69,13 +131,20 @@ const LoginScreen = () => {
                 autoCorrect={false}
                 editable={!isLoading}
               />
+              {formErrors.identifier && (
+                <Text style={styles.fieldErrorText}>{formErrors.identifier}</Text>
+              )}
             </View>
 
             <View style={styles.inputContainer}>
               <Text style={styles.label}>Password</Text>
               <View style={styles.passwordContainer}>
                 <TextInput
-                  style={[styles.input, styles.passwordInput]}
+                  style={[
+                    styles.input, 
+                    styles.passwordInput,
+                    formErrors.password ? styles.inputError : null
+                  ]}
                   value={password}
                   onChangeText={setPassword}
                   placeholder="Enter your password"
@@ -93,6 +162,9 @@ const LoginScreen = () => {
                   </Text>
                 </TouchableOpacity>
               </View>
+              {formErrors.password && (
+                <Text style={styles.fieldErrorText}>{formErrors.password}</Text>
+              )}
             </View>
 
             {error && (
@@ -239,6 +311,16 @@ const styles = StyleSheet.create({
     color: '#1DA1F2',
     fontSize: 14,
     fontWeight: '600',
+  },
+  inputError: {
+    borderColor: '#E0245E',
+    backgroundColor: '#FFF5F7',
+  },
+  fieldErrorText: {
+    color: '#E0245E',
+    fontSize: 12,
+    marginTop: 4,
+    marginLeft: 4,
   },
 });
 

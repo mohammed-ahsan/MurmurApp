@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   View,
   Text,
@@ -16,6 +16,14 @@ import { useRouter } from 'expo-router';
 // Hooks
 import { useAuth } from '../../store/hooks';
 
+interface FormErrors {
+  name?: string;
+  email?: string;
+  username?: string;
+  password?: string;
+  confirmPassword?: string;
+}
+
 const RegisterScreen = () => {
   const [name, setName] = useState('');
   const [email, setEmail] = useState('');
@@ -24,54 +32,127 @@ const RegisterScreen = () => {
   const [confirmPassword, setConfirmPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
+  const [formErrors, setFormErrors] = useState<FormErrors>({});
+  const [isFormValid, setIsFormValid] = useState(false);
   
   const router = useRouter();
   const { register, isLoading, error } = useAuth();
 
-  const validateForm = () => {
-    if (!name.trim() || !email.trim() || !username.trim() || !password.trim() || !confirmPassword.trim()) {
-      Alert.alert('Error', 'Please fill in all fields');
-      return false;
+  // Validate individual fields
+  const validateField = (field: string, value: string, compareValue?: string): string | undefined => {
+    switch (field) {
+      case 'name':
+        if (!value.trim()) {
+          return 'Display name is required';
+        }
+        if (value.trim().length < 1) {
+          return 'Display name cannot be empty';
+        }
+        if (value.trim().length > 50) {
+          return 'Display name must be less than 50 characters';
+        }
+        break;
+      case 'email':
+        if (!value.trim()) {
+          return 'Email is required';
+        }
+        const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+        if (!emailRegex.test(value)) {
+          return 'Please enter a valid email address';
+        }
+        break;
+      case 'username':
+        if (!value.trim()) {
+          return 'Username is required';
+        }
+        if (value.length < 3) {
+          return 'Username must be at least 3 characters long';
+        }
+        if (value.length > 30) {
+          return 'Username must be less than 30 characters long';
+        }
+        if (!/^[a-zA-Z0-9_]+$/.test(value)) {
+          return 'Username can only contain letters, numbers, and underscores';
+        }
+        break;
+      case 'password':
+        if (!value.trim()) {
+          return 'Password is required';
+        }
+        if (value.length < 8) {
+          return 'Password must be at least 8 characters long';
+        }
+        if (!/^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)/.test(value)) {
+          return 'Password must contain at least one lowercase letter, one uppercase letter, and one number';
+        }
+        break;
+      case 'confirmPassword':
+        if (!value.trim()) {
+          return 'Please confirm your password';
+        }
+        if (value !== compareValue) {
+          return 'Passwords do not match';
+        }
+        break;
     }
-
-    if (username.length < 3) {
-      Alert.alert('Error', 'Username must be at least 3 characters long');
-      return false;
-    }
-
-    if (username.length > 30) {
-      Alert.alert('Error', 'Username must be less than 30 characters long');
-      return false;
-    }
-
-    if (!/^[a-zA-Z0-9_]+$/.test(username)) {
-      Alert.alert('Error', 'Username can only contain letters, numbers, and underscores');
-      return false;
-    }
-
-    if (password.length < 8) {
-      Alert.alert('Error', 'Password must be at least 8 characters long');
-      return false;
-    }
-
-    if (!/^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)/.test(password)) {
-      Alert.alert('Error', 'Password must contain at least one lowercase letter, one uppercase letter, and one number');
-      return false;
-    }
-
-    if (password !== confirmPassword) {
-      Alert.alert('Error', 'Passwords do not match');
-      return false;
-    }
-
-    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-    if (!emailRegex.test(email)) {
-      Alert.alert('Error', 'Please enter a valid email address');
-      return false;
-    }
-
-    return true;
+    return undefined;
   };
+
+  // Validate entire form
+  const validateForm = (): boolean => {
+    const errors: FormErrors = {};
+    
+    const nameError = validateField('name', name);
+    if (nameError) errors.name = nameError;
+    
+    const emailError = validateField('email', email);
+    if (emailError) errors.email = emailError;
+    
+    const usernameError = validateField('username', username);
+    if (usernameError) errors.username = usernameError;
+    
+    const passwordError = validateField('password', password);
+    if (passwordError) errors.password = passwordError;
+    
+    const confirmPasswordError = validateField('confirmPassword', confirmPassword, password);
+    if (confirmPasswordError) errors.confirmPassword = confirmPasswordError;
+    
+    setFormErrors(errors);
+    return Object.keys(errors).length === 0;
+  };
+
+  // Update form validity when fields change
+  useEffect(() => {
+    const isValid = 
+      name.trim().length > 0 &&
+      email.trim().length > 0 &&
+      /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email) &&
+      username.trim().length >= 3 &&
+      username.length <= 30 &&
+      /^[a-zA-Z0-9_]+$/.test(username) &&
+      password.length >= 8 &&
+      /^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)/.test(password) &&
+      confirmPassword === password;
+    
+    setIsFormValid(isValid);
+    
+    // Clear specific field errors when user starts typing
+    if (name.trim().length > 0 && formErrors.name) {
+      setFormErrors(prev => ({ ...prev, name: undefined }));
+    }
+    if (email.trim().length > 0 && /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email) && formErrors.email) {
+      setFormErrors(prev => ({ ...prev, email: undefined }));
+    }
+    if (username.trim().length >= 3 && username.length <= 30 && /^[a-zA-Z0-9_]+$/.test(username) && formErrors.username) {
+      setFormErrors(prev => ({ ...prev, username: undefined }));
+    }
+    if (password.length >= 8 && /^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)/.test(password) && formErrors.password) {
+      setFormErrors(prev => ({ ...prev, password: undefined }));
+    }
+    if (confirmPassword === password && confirmPassword.length > 0 && formErrors.confirmPassword) {
+      setFormErrors(prev => ({ ...prev, confirmPassword: undefined }));
+    }
+  }, [name, email, username, password, confirmPassword]);
 
   const handleRegister = async () => {
     if (!validateForm()) {
@@ -115,19 +196,28 @@ const RegisterScreen = () => {
             <View style={styles.inputContainer}>
               <Text style={styles.label}>Full Name</Text>
               <TextInput
-                style={styles.input}
+                style={[
+                  styles.input,
+                  formErrors.name ? styles.inputError : null
+                ]}
                 value={name}
                 onChangeText={setName}
                 placeholder="Enter your full name"
                 autoCapitalize="words"
                 editable={!isLoading}
               />
+              {formErrors.name && (
+                <Text style={styles.fieldErrorText}>{formErrors.name}</Text>
+              )}
             </View>
 
             <View style={styles.inputContainer}>
               <Text style={styles.label}>Username</Text>
               <TextInput
-                style={styles.input}
+                style={[
+                  styles.input,
+                  formErrors.username ? styles.inputError : null
+                ]}
                 value={username}
                 onChangeText={setUsername}
                 placeholder="Choose a username"
@@ -135,12 +225,18 @@ const RegisterScreen = () => {
                 autoCorrect={false}
                 editable={!isLoading}
               />
+              {formErrors.username && (
+                <Text style={styles.fieldErrorText}>{formErrors.username}</Text>
+              )}
             </View>
 
             <View style={styles.inputContainer}>
               <Text style={styles.label}>Email</Text>
               <TextInput
-                style={styles.input}
+                style={[
+                  styles.input,
+                  formErrors.email ? styles.inputError : null
+                ]}
                 value={email}
                 onChangeText={setEmail}
                 placeholder="Enter your email"
@@ -149,13 +245,20 @@ const RegisterScreen = () => {
                 autoCorrect={false}
                 editable={!isLoading}
               />
+              {formErrors.email && (
+                <Text style={styles.fieldErrorText}>{formErrors.email}</Text>
+              )}
             </View>
 
             <View style={styles.inputContainer}>
               <Text style={styles.label}>Password</Text>
               <View style={styles.passwordContainer}>
                 <TextInput
-                  style={[styles.input, styles.passwordInput]}
+                  style={[
+                    styles.input, 
+                    styles.passwordInput,
+                    formErrors.password ? styles.inputError : null
+                  ]}
                   value={password}
                   onChangeText={setPassword}
                   placeholder="Create a password"
@@ -173,13 +276,20 @@ const RegisterScreen = () => {
                   </Text>
                 </TouchableOpacity>
               </View>
+              {formErrors.password && (
+                <Text style={styles.fieldErrorText}>{formErrors.password}</Text>
+              )}
             </View>
 
             <View style={styles.inputContainer}>
               <Text style={styles.label}>Confirm Password</Text>
               <View style={styles.passwordContainer}>
                 <TextInput
-                  style={[styles.input, styles.passwordInput]}
+                  style={[
+                    styles.input, 
+                    styles.passwordInput,
+                    formErrors.confirmPassword ? styles.inputError : null
+                  ]}
                   value={confirmPassword}
                   onChangeText={setConfirmPassword}
                   placeholder="Confirm your password"
@@ -197,6 +307,9 @@ const RegisterScreen = () => {
                   </Text>
                 </TouchableOpacity>
               </View>
+              {formErrors.confirmPassword && (
+                <Text style={styles.fieldErrorText}>{formErrors.confirmPassword}</Text>
+              )}
             </View>
 
             {error && (
@@ -324,6 +437,16 @@ const styles = StyleSheet.create({
     color: '#1DA1F2',
     fontSize: 14,
     fontWeight: '600',
+  },
+  inputError: {
+    borderColor: '#E0245E',
+    backgroundColor: '#FFF5F7',
+  },
+  fieldErrorText: {
+    color: '#E0245E',
+    fontSize: 12,
+    marginTop: 4,
+    marginLeft: 4,
   },
 });
 

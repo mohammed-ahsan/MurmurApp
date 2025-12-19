@@ -11,6 +11,8 @@ import { View, Text, ActivityIndicator } from 'react-native';
 import { useColorScheme } from '@/components/useColorScheme';
 import { store } from '../src/store';
 import { selectIsAuthenticated, selectAuthLoading } from '../src/store/slices/authSlice';
+import { restoreToken } from '../src/store/slices/authSlice';
+import { useAppDispatch } from '../src/store/hooks';
 
 export {
   // Catch any errors thrown by the Layout component.
@@ -30,6 +32,12 @@ function AuthChecker({ children }: { children: React.ReactNode }) {
   const isAuthenticated = useSelector(selectIsAuthenticated);
   const isLoading = useSelector(selectAuthLoading);
   const router = useRouter();
+  const dispatch = useAppDispatch();
+
+  useEffect(() => {
+    // Initialize token restoration on app startup
+    dispatch(restoreToken());
+  }, [dispatch]);
 
   useEffect(() => {
     if (!isLoading) {

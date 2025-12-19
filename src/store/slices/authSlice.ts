@@ -177,6 +177,8 @@ const authSlice = createSlice({
         state.isLoading = false;
         state.error = action.payload as string;
         state.isAuthenticated = false;
+        state.user = null;
+        state.token = null;
       });
 
     // Register
@@ -196,6 +198,8 @@ const authSlice = createSlice({
         state.isLoading = false;
         state.error = action.payload as string;
         state.isAuthenticated = false;
+        state.user = null;
+        state.token = null;
       });
 
     // Get current user

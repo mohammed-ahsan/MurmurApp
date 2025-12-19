@@ -3,8 +3,8 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 
 // API base configuration
 const API_BASE_URL = __DEV__ 
-  ? 'http://10.96.229.9:3000/api'  
-  : 'https://your-production-api.com/api';
+  ? 'http://10.0.2.2:3000/api'  
+  : 'http://10.0.2.2:3000/api';
 
 // Types for API responses
 export interface ApiResponse<T = any> {
@@ -193,6 +193,7 @@ const createApiInstance = (): AxiosInstance => {
       
       // Handle network errors
       if (!error.response) {
+        console.log(error,"error")
         throw new Error('Network error. Please check your connection.');
       }
       

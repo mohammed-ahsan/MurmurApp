@@ -23,6 +23,19 @@ import {
   clearMurmursError,
   resetUserMurmurs
 } from './slices/murmursSlice';
+import {
+  fetchUserProfile,
+  fetchUserFollowers,
+  fetchUserFollowing,
+  searchUsers,
+  followUser,
+  unfollowUser,
+  clearUsersError,
+  clearSearch,
+  resetUserProfile,
+  resetUserFollowers,
+  resetUserFollowing
+} from './slices/usersSlice';
 
 // Use throughout your app instead of plain `useDispatch` and `useSelector`
 export const useAppDispatch = () => useDispatch<AppDispatch>();
@@ -91,17 +104,17 @@ export const useUsers = () => {
   
   return {
     ...users,
-    fetchUserProfile: (userId: string) => dispatch({ type: 'users/fetchUserProfile', payload: userId }),
-    fetchUserFollowers: (params: any) => dispatch({ type: 'users/fetchUserFollowers', payload: params }),
-    fetchUserFollowing: (params: any) => dispatch({ type: 'users/fetchUserFollowing', payload: params }),
-    searchUsersAction: (params: any) => dispatch({ type: 'users/searchUsers', payload: params }),
-    followUser: (userId: string) => dispatch({ type: 'users/followUser', payload: userId }),
-    unfollowUser: (userId: string) => dispatch({ type: 'users/unfollowUser', payload: userId }),
-    clearUsersError: (params?: any) => dispatch({ type: 'users/clearUsersError', payload: params }),
-    clearSearch: () => dispatch({ type: 'users/clearSearch' }),
-    resetUserProfile: (userId: string) => dispatch({ type: 'users/resetUserProfile', payload: userId }),
-    resetUserFollowers: (userId: string) => dispatch({ type: 'users/resetUserFollowers', payload: userId }),
-    resetUserFollowing: (userId: string) => dispatch({ type: 'users/resetUserFollowing', payload: userId }),
+    fetchUserProfile: (userId: string) => dispatch(fetchUserProfile(userId)),
+    fetchUserFollowers: (params: any) => dispatch(fetchUserFollowers(params)),
+    fetchUserFollowing: (params: any) => dispatch(fetchUserFollowing(params)),
+    searchUsersAction: (params: any) => dispatch(searchUsers(params)),
+    followUser: (userId: string) => dispatch(followUser(userId)),
+    unfollowUser: (userId: string) => dispatch(unfollowUser(userId)),
+    clearUsersError: (params?: any) => dispatch(clearUsersError(params)),
+    clearSearch: () => dispatch(clearSearch()),
+    resetUserProfile: (userId: string) => dispatch(resetUserProfile(userId)),
+    resetUserFollowers: (userId: string) => dispatch(resetUserFollowers(userId)),
+    resetUserFollowing: (userId: string) => dispatch(resetUserFollowing(userId)),
   };
 };
 

@@ -38,6 +38,10 @@ const UserProfileScreen = () => {
   const { user: currentUser } = useAuth();
   const { userProfile, fetchUserProfile, followUser, unfollowUser } = useUsers();
   const { userMurmurs, fetchUserMurmurs, likeMurmur } = useMurmurs();
+  
+  // Get the specific user profile for this userId
+  const currentUserProfile = userProfile[userId]?.user;
+  const isLoadingProfile = userProfile[userId]?.isLoading || false;
 
   useEffect(() => {
     fetchUserProfile(userId);
@@ -50,10 +54,10 @@ const UserProfileScreen = () => {
   }, [fetchUserProfile, fetchUserMurmurs, userId]);
 
   const handleFollow = useCallback(async () => {
-    if (!userProfile) return;
+    if (!currentUserProfile) return;
     
     try {
-      if (userProfile.isFollowing) {
+      if (currentUserProfile.isFollowing) {
         await unfollowUser(userId);
       } else {
         await followUser(userId);
@@ -62,7 +66,7 @@ const UserProfileScreen = () => {
     } catch (error: any) {
       Alert.alert('Error', error.message || 'Failed to update follow status');
     }
-  }, [userProfile, userId, followUser, unfollowUser, fetchUserProfile]);
+  }, [currentUserProfile, userId, followUser, unfollowUser, fetchUserProfile]);
 
   const handleLike = useCallback(async (murmurId: string) => {
     try {
@@ -77,10 +81,10 @@ const UserProfileScreen = () => {
   }, [navigation]);
 
   const handleUserPress = useCallback((userId: string) => {
-    if (userId !== userProfile?.id) {
+    if (userId !== currentUserProfile?.id) {
       navigation.navigate('UserProfile', { userId });
     }
-  }, [navigation, userProfile?.id]);
+  }, [navigation, currentUserProfile?.id]);
 
   const renderMurmur = useCallback(({ item }: { item: Murmur }) => (
     <MurmurItem
@@ -123,11 +127,11 @@ const UserProfileScreen = () => {
     return null;
   }, [userMurmurs.isLoading]);
 
-  if (!userProfile) {
+  if (isLoadingProfile || !currentUserProfile) {
     return <LoadingSpinner message="Loading profile..." />;
   }
 
-  const isOwnProfile = currentUser?.id === userProfile.id;
+  const isOwnProfile = currentUser?.id === currentUserProfile.id;
 
   return (
     <SafeAreaView style={styles.container}>
@@ -145,30 +149,30 @@ const UserProfileScreen = () => {
         <View style={styles.header}>
           <View style={styles.avatar}>
             <Text style={styles.avatarText}>
-              {userProfile.displayName.charAt(0).toUpperCase()}
+              {currentUserProfile.displayName.charAt(0).toUpperCase()}
             </Text>
           </View>
           
           <View style={styles.userInfo}>
-            <Text style={styles.displayName}>{userProfile.displayName}</Text>
-            <Text style={styles.username}>@{userProfile.username}</Text>
-            {userProfile.bio && <Text style={styles.bio}>{userProfile.bio}</Text>}
+            <Text style={styles.displayName}>{currentUserProfile.displayName}</Text>
+            <Text style={styles.username}>@{currentUserProfile.username}</Text>
+            {currentUserProfile.bio && <Text style={styles.bio}>{currentUserProfile.bio}</Text>}
           </View>
 
           {!isOwnProfile && (
             <TouchableOpacity
               style={[
                 styles.followButton,
-                userProfile.isFollowing ? styles.followingButton : styles.followButtonActive
+                currentUserProfile.isFollowing ? styles.followingButton : styles.followButtonActive
               ]}
               onPress={handleFollow}
-              disabled={userProfile.isFollowing === undefined}
+              disabled={currentUserProfile.isFollowing === undefined}
             >
               <Text style={[
                 styles.followButtonText,
-                userProfile.isFollowing ? styles.followingButtonText : styles.followButtonTextActive
+                currentUserProfile.isFollowing ? styles.followingButtonText : styles.followButtonTextActive
               ]}>
-                {userProfile.isFollowing ? 'Following' : 'Follow'}
+                {currentUserProfile.isFollowing ? 'Following' : 'Follow'}
               </Text>
             </TouchableOpacity>
           )}
@@ -177,15 +181,15 @@ const UserProfileScreen = () => {
         {/* Stats */}
         <View style={styles.stats}>
           <View style={styles.statItem}>
-            <Text style={styles.statNumber}>{userProfile.murmursCount}</Text>
+            <Text style={styles.statNumber}>{currentUserProfile.murmursCount}</Text>
             <Text style={styles.statLabel}>Murmurs</Text>
           </View>
           <View style={styles.statItem}>
-            <Text style={styles.statNumber}>{userProfile.followingCount}</Text>
+            <Text style={styles.statNumber}>{currentUserProfile.followingCount}</Text>
             <Text style={styles.statLabel}>Following</Text>
           </View>
           <View style={styles.statItem}>
-            <Text style={styles.statNumber}>{userProfile.followersCount}</Text>
+            <Text style={styles.statNumber}>{currentUserProfile.followersCount}</Text>
             <Text style={styles.statLabel}>Followers</Text>
           </View>
         </View>
