@@ -42,7 +42,7 @@ const TimelineScreen = () => {
   const handleLoadMore = useCallback(() => {
     if (!timeline.isLoading && timeline.hasMore && timeline.pagination) {
       fetchTimeline({
-        page: timeline.pagination.currentPage + 1,
+        page: timeline.pagination.page + 1,
         limit: 10,
         refresh: false,
       });
@@ -118,15 +118,16 @@ const TimelineScreen = () => {
     if (!timeline.isLoading && timeline.murmurs.length === 0) {
       return (
         <EmptyState
-          title="No Murmurs Yet"
-          subtitle="Start following people to see their murmurs in your timeline"
-          actionText="Create Your First Murmur"
-          onAction={handleCreateMurmur}
+          title="Your Timeline is Empty"
+          subtitle="Explore and follow users to see their murmurs here"
+          actionText="Explore Now"
+          onAction={() => router.push('/(tabs)/search' as any)}
+          icon="🌍"
         />
       );
     }
     return null;
-  }, [timeline.isLoading, timeline.murmurs.length, handleCreateMurmur]);
+  }, [timeline.isLoading, timeline.murmurs.length, router]);
 
   if (timeline.isLoading && timeline.murmurs.length === 0) {
     return <LoadingSpinner />;

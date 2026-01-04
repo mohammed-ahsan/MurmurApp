@@ -16,6 +16,7 @@ import {
   fetchTimeline,
   fetchAllMurmurs,
   fetchUserMurmurs,
+  fetchUserLikedMurmurs,
   fetchMurmur,
   createMurmur,
   deleteMurmur,
@@ -36,6 +37,15 @@ import {
   resetUserFollowers,
   resetUserFollowing
 } from './slices/usersSlice';
+import {
+  fetchNotifications,
+  fetchUnreadCount,
+  markAsRead,
+  markAllAsRead,
+  deleteNotification,
+  clearNotifications,
+  clearError as clearNotificationsError
+} from './slices/notificationsSlice';
 
 // Use throughout your app instead of plain `useDispatch` and `useSelector`
 export const useAppDispatch = () => useDispatch<AppDispatch>();
@@ -56,6 +66,10 @@ export const useUsersState = () => {
 
 export const useUIState = () => {
   return useAppSelector((state: any) => state.ui);
+};
+
+export const useNotificationsState = () => {
+  return useAppSelector((state: any) => state.notifications);
 };
 
 // Auth hook
@@ -88,6 +102,7 @@ export const useMurmurs = () => {
     fetchTimeline: (params?: any) => dispatch(fetchTimeline(params)),
     fetchAllMurmurs: (params?: any) => dispatch(fetchAllMurmurs(params)),
     fetchUserMurmurs: (params: any) => dispatch(fetchUserMurmurs(params)),
+    fetchUserLikedMurmurs: (params: any) => dispatch(fetchUserLikedMurmurs(params)),
     fetchMurmur: (id: string) => dispatch(fetchMurmur(id)),
     createMurmur: (content: string) => dispatch(createMurmur(content)),
     deleteMurmur: (id: string) => dispatch(deleteMurmur(id)),
@@ -147,5 +162,22 @@ export const useUI = () => {
     clearNetworkError: () => dispatch({ type: 'ui/clearNetworkError' }),
     clearAllErrors: () => dispatch({ type: 'ui/clearAllErrors' }),
     resetUIState: () => dispatch({ type: 'ui/resetUIState' }),
+  };
+};
+
+// Notifications hook
+export const useNotifications = () => {
+  const notifications = useNotificationsState();
+  const dispatch = useAppDispatch();
+  
+  return {
+    ...notifications,
+    fetchNotifications: (params?: { cursor?: string }) => dispatch(fetchNotifications(params || {})),
+    fetchUnreadCount: () => dispatch(fetchUnreadCount()),
+    markAsRead: (notificationId: string) => dispatch(markAsRead(notificationId)),
+    markAllAsRead: () => dispatch(markAllAsRead()),
+    deleteNotification: (notificationId: string) => dispatch(deleteNotification(notificationId)),
+    clearNotifications: () => dispatch(clearNotifications()),
+    clearError: () => dispatch(clearNotificationsError()),
   };
 };

@@ -1,4 +1,4 @@
-import React, { useEffect, useCallback, useState } from 'react';
+import React, { useEffect, useCallback, useState, useRef } from 'react';
 import {
   View,
   Text,
@@ -27,19 +27,25 @@ import { Murmur } from '../../types';
 const MurmurDetailScreen = () => {
   const [replyContent, setReplyContent] = useState('');
   const [isReplying, setIsReplying] = useState(false);
+  const lastFetchedId = useRef<string | null>(null);
   
   const router = useRouter();
   const params = useLocalSearchParams<{ id: string }>();
   const murmurId = params.id;
   
-  const { murmur, fetchMurmur, likeMurmur, deleteMurmur } = useMurmurs();
+  const { currentMurmur, fetchMurmur, likeMurmur, deleteMurmur } = useMurmurs();
   const { user } = useAuth();
+  
+  const murmur = currentMurmur?.murmur;
 
   useEffect(() => {
-    if (murmurId) {
+    // Only fetch if murmurId exists and we haven't already fetched this specific ID
+    if (murmurId && lastFetchedId.current !== murmurId) {
+      lastFetchedId.current = murmurId;
       fetchMurmur(murmurId);
     }
-  }, [fetchMurmur, murmurId]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [murmurId]);
 
   const handleLike = useCallback(async () => {
     if (!murmur) return;
@@ -159,10 +165,10 @@ const MurmurDetailScreen = () => {
         {/* Actions */}
         <View style={styles.actions}>
           <TouchableOpacity onPress={handleLike} style={styles.actionButton}>
-            <Text style={[styles.actionText, murmur.isLiked && styles.liked]}>
-              {murmur.isLiked ? '❤️' : '🤍'}
+            <Text style={[styles.actionText, murmur.isLikedByUser && styles.liked]}>
+              {murmur.isLikedByUser ? '❤️' : '🤍'}
             </Text>
-            <Text style={[styles.actionCount, murmur.isLiked && styles.liked]}>
+            <Text style={[styles.actionCount, murmur.isLikedByUser && styles.liked]}>
               {murmur.likesCount}
             </Text>
           </TouchableOpacity>

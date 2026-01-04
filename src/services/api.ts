@@ -293,6 +293,14 @@ export const murmursAPI = {
     );
     return response.data.data!;
   },
+
+  getUserLikedMurmurs: async (userId: string, page: number = 1, limit: number = 10): Promise<{ murmurs: Murmur[]; pagination: PaginationInfo }> => {
+    const response = await api.get<ApiResponse<{ murmurs: Murmur[]; pagination: PaginationInfo }>>(
+      `/murmurs/user/${userId}/likes`,
+      { params: { page, limit } }
+    );
+    return response.data.data!;
+  },
 };
 
 // Users API
@@ -336,6 +344,45 @@ export const usersAPI = {
     return response.data.data!;
   },
 };
+
+// Notifications API
+export const notificationsAPI = {
+  getNotifications: async (cursor?: string) => {
+    const params = cursor ? { cursor } : {};
+    const response = await api.get<ApiResponse<any[]>>('/notifications', { params });
+    return {
+      data: response.data.data || [],
+      hasMore: response.data.hasMore || false,
+      nextCursor: response.data.nextCursor || null,
+    };
+  },
+
+  getUnreadCount: async () => {
+    const response = await api.get<ApiResponse<{ count: number }>>('/notifications/unread-count');
+    return response.data.data!;
+  },
+
+  markNotificationAsRead: async (notificationId: string) => {
+    const response = await api.put<ApiResponse>(`/notifications/${notificationId}/read`);
+    return response.data;
+  },
+
+  markAllNotificationsAsRead: async () => {
+    const response = await api.put<ApiResponse>('/notifications/read-all');
+    return response.data;
+  },
+
+  deleteNotification: async (notificationId: string) => {
+    const response = await api.delete<ApiResponse>(`/notifications/${notificationId}`);
+    return response.data;
+  },
+};
+
+export const getNotifications = notificationsAPI.getNotifications;
+export const getUnreadCount = notificationsAPI.getUnreadCount;
+export const markNotificationAsRead = notificationsAPI.markNotificationAsRead;
+export const markAllNotificationsAsRead = notificationsAPI.markAllNotificationsAsRead;
+export const deleteNotification = notificationsAPI.deleteNotification;
 
 // Utility functions
 export const getAuthToken = async (): Promise<string | null> => {

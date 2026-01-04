@@ -9,6 +9,7 @@ import {
   ActivityIndicator,
   RefreshControl,
 } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter, useLocalSearchParams } from 'expo-router';
 
 // Components
@@ -27,16 +28,21 @@ export default function UserProfileScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
   const [isRefreshing, setIsRefreshing] = useState(false);
   
-  const { userMurmurs, fetchUserMurmurs, likeMurmur, deleteMurmur } = useMurmurs();
-  const { userProfile, fetchUserProfile, followUser, unfollowUser } = useUsers();
+  const { userMurmurs: allUserMurmurs, fetchUserMurmurs, likeMurmur, deleteMurmur } = useMurmurs();
+  const { userProfile: allUserProfiles, fetchUserProfile, followUser, unfollowUser } = useUsers();
   const { user } = useAuth();
+
+  // Get profile and murmurs for this specific user
+  const userProfile = id ? allUserProfiles[id] : undefined;
+  const userMurmurs = id ? allUserMurmurs[id] : undefined;
 
   useEffect(() => {
     if (id) {
       fetchUserProfile(id);
       fetchUserMurmurs({ userId: id, page: 1, limit: 10, refresh: true });
     }
-  }, [id, fetchUserProfile, fetchUserMurmurs]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [id]);
 
   const handleRefresh = useCallback(async () => {
     if (!id) return;
@@ -52,19 +58,20 @@ export default function UserProfileScreen() {
     } finally {
       setIsRefreshing(false);
     }
-  }, [id, fetchUserProfile, fetchUserMurmurs]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [id]);
 
   const handleLoadMore = useCallback(() => {
-    if (!id || !userMurmurs.hasMore || userMurmurs.isLoading) return;
+    if (!id || !userMurmurs || !userMurmurs.hasMore || userMurmurs.isLoading) return;
     
-    const nextPage = userMurmurs.pagination?.currentPage ? userMurmurs.pagination.currentPage + 1 : 2;
+    const nextPage = userMurmurs.pagination?.page ? userMurmurs.pagination.page + 1 : 2;
     fetchUserMurmurs({
       userId: id,
       page: nextPage,
       limit: 10,
       refresh: false,
     });
-  }, [id, fetchUserMurmurs, userMurmurs.hasMore, userMurmurs.isLoading, userMurmurs.pagination]);
+  }, [id, fetchUserMurmurs, userMurmurs]);
 
   const handleLike = useCallback(async (murmurId: string) => {
     try {
@@ -150,6 +157,22 @@ export default function UserProfileScreen() {
           )}
         </View>
 
+        {/* Stats */}
+        <View style={styles.stats}>
+          <View style={styles.statItem}>
+            <Text style={styles.statNumber}>{userProfile.user.murmursCount || 0}</Text>
+            <Text style={styles.statLabel}>Murmurs</Text>
+          </View>
+          <View style={styles.statItem}>
+            <Text style={styles.statNumber}>{userProfile.user.followingCount || 0}</Text>
+            <Text style={styles.statLabel}>Following</Text>
+          </View>
+          <View style={styles.statItem}>
+            <Text style={styles.statNumber}>{userProfile.user.followersCount || 0}</Text>
+            <Text style={styles.statLabel}>Followers</Text>
+          </View>
+        </View>
+
         {!isOwnProfile && (
           <TouchableOpacity
             style={[
@@ -176,7 +199,7 @@ export default function UserProfileScreen() {
   }, [userProfile, user, handleFollow]);
 
   const renderFooter = useCallback(() => {
-    if (userMurmurs.isLoading) {
+    if (userMurmurs?.isLoading) {
       return (
         <View style={styles.footerLoader}>
           <ActivityIndicator size="small" color="#1DA1F2" />
@@ -184,10 +207,10 @@ export default function UserProfileScreen() {
       );
     }
     return null;
-  }, [userMurmurs.isLoading]);
+  }, [userMurmurs?.isLoading]);
 
   const renderEmptyState = useCallback(() => {
-    if (!userMurmurs.isLoading && userMurmurs.murmurs.length === 0) {
+    if (!userMurmurs?.isLoading && (!userMurmurs?.murmurs || userMurmurs.murmurs.length === 0)) {
       return (
         <EmptyState
           title="No Murmurs"
@@ -196,7 +219,7 @@ export default function UserProfileScreen() {
       );
     }
     return null;
-  }, [userMurmurs.isLoading, userMurmurs.murmurs.length]);
+  }, [userMurmurs?.isLoading, userMurmurs?.murmurs]);
 
   if (userProfile?.isLoading && !userProfile.user) {
     return <LoadingSpinner />;
@@ -204,19 +227,26 @@ export default function UserProfileScreen() {
 
   if (!userProfile?.user) {
     return (
-      <View style={styles.container}>
+      <SafeAreaView style={styles.container}>
         <EmptyState
           title="User Not Found"
           subtitle="This user doesn't exist or has been deleted"
         />
-      </View>
+      </SafeAreaView>
     );
   }
 
   return (
-    <View style={styles.container}>
+    <SafeAreaView style={styles.container} edges={['top', 'left', 'right']}>
+      {/* Back Button */}
+      <View style={styles.backButtonContainer}>
+        <TouchableOpacity onPress={() => router.back()} style={styles.backButton}>
+          <Text style={styles.backButtonText}>← Back</Text>
+        </TouchableOpacity>
+      </View>
+
       <FlatList
-        data={userMurmurs.murmurs}
+        data={userMurmurs?.murmurs || []}
         renderItem={renderMurmur}
         keyExtractor={(item) => item.id}
         ListHeaderComponent={renderHeader}
@@ -233,9 +263,9 @@ export default function UserProfileScreen() {
         onEndReached={handleLoadMore}
         onEndReachedThreshold={0.5}
         showsVerticalScrollIndicator={false}
-        contentContainerStyle={userMurmurs.murmurs.length === 0 ? styles.emptyContainer : null}
+        contentContainerStyle={!userMurmurs?.murmurs || userMurmurs.murmurs.length === 0 ? styles.emptyContainer : null}
       />
-    </View>
+    </SafeAreaView>
   );
 }
 
@@ -243,6 +273,22 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: '#ffffff',
+  },
+  backButtonContainer: {
+    paddingHorizontal: 16,
+    paddingVertical: 8,
+    borderBottomWidth: 1,
+    borderBottomColor: '#E1E8ED',
+  },
+  backButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingVertical: 4,
+  },
+  backButtonText: {
+    fontSize: 16,
+    color: '#1DA1F2',
+    fontWeight: '600',
   },
   emptyContainer: {
     flexGrow: 1,
@@ -289,6 +335,29 @@ const styles = StyleSheet.create({
     color: '#14171A',
     textAlign: 'center',
     lineHeight: 20,
+  },
+  stats: {
+    flexDirection: 'row',
+    justifyContent: 'space-around',
+    paddingVertical: 16,
+    marginBottom: 16,
+    borderTopWidth: 1,
+    borderTopColor: '#E1E8ED',
+    borderBottomWidth: 1,
+    borderBottomColor: '#E1E8ED',
+  },
+  statItem: {
+    alignItems: 'center',
+  },
+  statNumber: {
+    fontSize: 18,
+    fontWeight: 'bold',
+    color: '#14171A',
+    marginBottom: 4,
+  },
+  statLabel: {
+    fontSize: 12,
+    color: '#657786',
   },
   followButton: {
     backgroundColor: '#1DA1F2',

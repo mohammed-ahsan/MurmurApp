@@ -22,8 +22,8 @@ export interface Murmur {
   likesCount: number;
   repliesCount: number;
   retweetsCount: number;
-  isLiked: boolean;
-  isRetweeted: boolean;
+  isLikedByUser?: boolean;
+  isRetweeted?: boolean;
   createdAt: Date;
   updatedAt: Date;
 }
@@ -168,7 +168,8 @@ export interface Notification {
   id: string;
   type: 'like' | 'follow' | 'reply' | 'retweet';
   userId: string;
-  user: User;
+  actorId: string;
+  actor: User;
   murmurId?: string;
   murmur?: Murmur;
   isRead: boolean;

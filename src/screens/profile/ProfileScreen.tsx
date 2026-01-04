@@ -28,7 +28,18 @@ const ProfileScreen = () => {
   
   const router = useRouter();
   const { user, logout } = useAuth();
-  const { userMurmurs, fetchUserMurmurs, deleteMurmur, likeMurmur } = useMurmurs();
+  const { 
+    userMurmurs: allUserMurmurs, 
+    userLikedMurmurs: allUserLikedMurmurs,
+    fetchUserMurmurs, 
+    fetchUserLikedMurmurs,
+    deleteMurmur, 
+    likeMurmur 
+  } = useMurmurs();
+  
+  // Get the current user's murmurs from the state
+  const userMurmurs = user?.id ? allUserMurmurs[user.id] : undefined;
+  const userLikedMurmurs = user?.id ? allUserLikedMurmurs[user.id] : undefined;
 
   useEffect(() => {
     if (user) {
@@ -36,22 +47,42 @@ const ProfileScreen = () => {
     }
   }, [user?.id]); // Only depend on user.id, not the fetchUserMurmurs function
 
+  // Fetch liked murmurs when switching to likes tab
+  useEffect(() => {
+    if (user && activeTab === 'likes' && !userLikedMurmurs) {
+      fetchUserLikedMurmurs({ userId: user.id, page: 1, limit: 10, refresh: true });
+    }
+  }, [activeTab, user?.id]);
+
   const handleRefresh = useCallback(() => {
     if (user) {
-      fetchUserMurmurs({ userId: user.id, page: 1, limit: 10, refresh: true });
+      if (activeTab === 'murmurs') {
+        fetchUserMurmurs({ userId: user.id, page: 1, limit: 10, refresh: true });
+      } else {
+        fetchUserLikedMurmurs({ userId: user.id, page: 1, limit: 10, refresh: true });
+      }
     }
-  }, [user?.id]); // Only depend on user.id
+  }, [user?.id, activeTab]); // Only depend on user.id and activeTab
 
   const handleLoadMore = useCallback(() => {
-    if (user && !userMurmurs.isLoading && userMurmurs.hasMore && userMurmurs.pagination) {
-      fetchUserMurmurs({
-        userId: user.id,
-        page: userMurmurs.pagination.currentPage + 1,
-        limit: 10,
-        refresh: false,
-      });
+    if (user) {
+      if (activeTab === 'murmurs' && userMurmurs && !userMurmurs.isLoading && userMurmurs.hasMore && userMurmurs.pagination) {
+        fetchUserMurmurs({
+          userId: user.id,
+          page: userMurmurs.pagination.page + 1,
+          limit: 10,
+          refresh: false,
+        });
+      } else if (activeTab === 'likes' && userLikedMurmurs && !userLikedMurmurs.isLoading && userLikedMurmurs.hasMore && userLikedMurmurs.pagination) {
+        fetchUserLikedMurmurs({
+          userId: user.id,
+          page: userLikedMurmurs.pagination.page + 1,
+          limit: 10,
+          refresh: false,
+        });
+      }
     }
-  }, [user?.id, userMurmurs.isLoading, userMurmurs.hasMore, userMurmurs.pagination]);
+  }, [user?.id, activeTab, userMurmurs?.isLoading, userMurmurs?.hasMore, userMurmurs?.pagination, userLikedMurmurs?.isLoading, userLikedMurmurs?.hasMore, userLikedMurmurs?.pagination]);
 
   const handleLike = useCallback(async (murmurId: string) => {
     try {
@@ -147,7 +178,8 @@ const ProfileScreen = () => {
   }, [activeTab, router]);
 
   const renderFooter = useCallback(() => {
-    if (userMurmurs.isLoading) {
+    const isLoading = activeTab === 'murmurs' ? userMurmurs?.isLoading : userLikedMurmurs?.isLoading;
+    if (isLoading) {
       return (
         <View style={styles.footerLoader}>
           <ActivityIndicator size="small" color="#1DA1F2" />
@@ -155,7 +187,7 @@ const ProfileScreen = () => {
       );
     }
     return null;
-  }, [userMurmurs.isLoading]);
+  }, [activeTab, userMurmurs?.isLoading, userLikedMurmurs?.isLoading]);
 
   if (!user) {
     return <LoadingSpinner message="Loading profile..." />;
@@ -166,7 +198,7 @@ const ProfileScreen = () => {
       <ScrollView
         refreshControl={
           <RefreshControl
-            refreshing={userMurmurs.isLoading}
+            refreshing={(activeTab === 'murmurs' ? userMurmurs?.isLoading : userLikedMurmurs?.isLoading) || false}
             onRefresh={handleRefresh}
             tintColor="#1DA1F2"
             colors={['#1DA1F2']}
@@ -254,7 +286,20 @@ const ProfileScreen = () => {
             renderEmptyState()
           )
         ) : (
-          renderEmptyState()
+          userLikedMurmurs?.murmurs && userLikedMurmurs.murmurs.length > 0 ? (
+            userLikedMurmurs.murmurs.map((murmur: Murmur) => (
+              <MurmurItem
+                key={murmur.id}
+                murmur={murmur}
+                onLike={handleLike}
+                onDelete={handleDelete}
+                onMurmurPress={handleMurmurPress}
+                onUserPress={handleUserPress}
+              />
+            ))
+          ) : (
+            renderEmptyState()
+          )
         )}
 
         {renderFooter()}

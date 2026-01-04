@@ -8,6 +8,7 @@ import authSlice from './slices/authSlice';
 import murmursSlice from './slices/murmursSlice';
 import usersSlice from './slices/usersSlice';
 import uiSlice from './slices/uiSlice';
+import notificationsSlice from './slices/notificationsSlice';
 
 // Import API service to set store reference
 import { setApiStore } from '../services/api';
@@ -26,6 +27,7 @@ const rootReducer = combineReducers({
   murmurs: murmursSlice,
   users: usersSlice,
   ui: uiSlice,
+  notifications: notificationsSlice,
 });
 
 // Create persisted reducer

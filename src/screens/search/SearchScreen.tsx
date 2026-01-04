@@ -9,35 +9,44 @@ import {
   ActivityIndicator,
   KeyboardAvoidingView,
   Platform,
+  RefreshControl,
+  Alert,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
 
 // Components
+import MurmurItem from '../../components/murmur/MurmurItem';
 import LoadingSpinner from '../../components/common/LoadingSpinner';
 import EmptyState from '../../components/common/EmptyState';
 
 // Hooks
-import { useUsers, useUI } from '../../store/hooks';
+import { useUsers, useUI, useMurmurs, useAuth } from '../../store/hooks';
 
 // Types
-import { User } from '../../types';
+import { User, Murmur } from '../../types';
 
 const SearchScreen = () => {
   const [query, setQuery] = useState('');
   const [searchTimeout, setSearchTimeout] = useState<number | null>(null);
+  const [activeTab, setActiveTab] = useState<'murmurs' | 'users'>('murmurs');
   
   const router = useRouter();
+  const { user } = useAuth();
+  const { allMurmurs, fetchAllMurmurs, likeMurmur, deleteMurmur } = useMurmurs();
   const { searchUsersAction, clearSearch, ...usersState } = useUsers();
   const { searchQuery, setSearchQuery, setSearchActive } = useUI();
 
   useEffect(() => {
+    // Fetch all murmurs on mount
+    fetchAllMurmurs({ page: 1, limit: 20, refresh: true });
+    
     return () => {
       if (searchTimeout) {
         clearTimeout(searchTimeout);
       }
     };
-  }, [searchTimeout]);
+  }, []);
 
   useEffect(() => {
     // Sync with global search state
@@ -67,14 +76,53 @@ const SearchScreen = () => {
     setSearchTimeout(timeout);
   }, [searchTimeout, searchUsersAction, clearSearch, setSearchQuery, setSearchActive]);
 
-  const handleUserPress = useCallback((user: User) => {
-    router.push(`/user/${user.id}` as any);
+  const handleUserPress = useCallback((userId: string) => {
+    router.push(`/user/${userId}` as any);
   }, [router]);
+
+  const handleMurmurPress = useCallback((murmur: Murmur) => {
+    router.push(`/murmur/${murmur.id}` as any);
+  }, [router]);
+
+  const handleLike = useCallback(async (murmurId: string) => {
+    try {
+      await likeMurmur(murmurId);
+    } catch (error: any) {
+      Alert.alert('Error', error.message || 'Failed to like murmur');
+    }
+  }, [likeMurmur]);
+
+  const handleDelete = useCallback((murmurId: string) => {
+    Alert.alert(
+      'Delete Murmur',
+      'Are you sure you want to delete this murmur?',
+      [
+        { text: 'Cancel', style: 'cancel' },
+        {
+          text: 'Delete',
+          style: 'destructive',
+          onPress: async () => {
+            try {
+              await deleteMurmur(murmurId);
+            } catch (error: any) {
+              Alert.alert('Error', error.message || 'Failed to delete murmur');
+            }
+          },
+        },
+      ]
+    );
+  }, [deleteMurmur]);
+
+  const handleRefresh = useCallback(() => {
+    if (activeTab === 'murmurs') {
+      fetchAllMurmurs({ page: 1, limit: 20, refresh: true });
+    }
+  }, [activeTab, fetchAllMurmurs]);
 
   const renderUser = useCallback(({ item }: { item: User }) => (
     <TouchableOpacity
       style={styles.userItem}
-      onPress={() => handleUserPress(item)}
+      onPress={() => handleUserPress(item.id)}
       activeOpacity={0.7}
     >
       <View style={styles.avatar}>
@@ -101,6 +149,16 @@ const SearchScreen = () => {
   ), [handleUserPress]);
 
   const renderEmptyState = useCallback(() => {
+    if (activeTab === 'murmurs') {
+      return (
+        <EmptyState
+          title="No Murmurs Yet"
+          subtitle="Check back later for new content"
+          icon="📝"
+        />
+      );
+    }
+
     if (query.trim().length === 0) {
       return (
         <EmptyState
@@ -122,11 +180,15 @@ const SearchScreen = () => {
     }
 
     return null;
-  }, [query, usersState.search.isLoading, usersState.search.users.length]);
+  }, [activeTab, query, usersState.search.isLoading, usersState.search.users.length]);
 
-  if (usersState.search.isLoading && usersState.search.users.length === 0) {
+  if ((activeTab === 'murmurs' && allMurmurs.isLoading && allMurmurs.murmurs.length === 0) ||
+      (activeTab === 'users' && usersState.search.isLoading && usersState.search.users.length === 0 && query.length > 0)) {
     return <LoadingSpinner />;
   }
+
+  // Filter out current user's murmurs from all murmurs
+  const exploreMurmurs = user ? allMurmurs.murmurs.filter(m => m.userId !== user.id) : allMurmurs.murmurs;
 
   return (
     <SafeAreaView style={styles.container}>
@@ -134,42 +196,98 @@ const SearchScreen = () => {
         style={styles.container}
         behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
       >
-        <View style={styles.searchContainer}>
-        <TextInput
-          style={styles.searchInput}
-          value={query}
-          onChangeText={handleSearch}
-          placeholder="Search users..."
-          placeholderTextColor="#657786"
-          autoCapitalize="none"
-          autoCorrect={false}
-          returnKeyType="search"
-        />
-        {query.length > 0 && (
+        {/* Tabs */}
+        <View style={styles.tabs}>
           <TouchableOpacity
-            style={styles.clearButton}
-            onPress={() => handleSearch('')}
+            style={[styles.tab, activeTab === 'murmurs' && styles.activeTab]}
+            onPress={() => setActiveTab('murmurs')}
           >
-            <Text style={styles.clearButtonText}>✕</Text>
+            <Text style={[styles.tabText, activeTab === 'murmurs' && styles.activeTabText]}>
+              Murmurs
+            </Text>
           </TouchableOpacity>
-        )}
-      </View>
+          <TouchableOpacity
+            style={[styles.tab, activeTab === 'users' && styles.activeTab]}
+            onPress={() => setActiveTab('users')}
+          >
+            <Text style={[styles.tabText, activeTab === 'users' && styles.activeTabText]}>
+              Users
+            </Text>
+          </TouchableOpacity>
+        </View>
 
-      <FlatList
-        data={usersState.search.users}
-        renderItem={renderUser}
-        keyExtractor={(item) => item.id}
-        ListEmptyComponent={renderEmptyState}
-        showsVerticalScrollIndicator={false}
-        contentContainerStyle={usersState.search.users.length === 0 ? styles.emptyContainer : null}
-        ListFooterComponent={
-          usersState.search.isLoading ? (
-            <View style={styles.footerLoader}>
-              <ActivityIndicator size="small" color="#1DA1F2" />
-            </View>
-          ) : null
-        }
-      />
+        {activeTab === 'users' && (
+          <View style={styles.searchContainer}>
+            <TextInput
+              style={styles.searchInput}
+              value={query}
+              onChangeText={handleSearch}
+              placeholder="Search users..."
+              placeholderTextColor="#657786"
+              autoCapitalize="none"
+              autoCorrect={false}
+              returnKeyType="search"
+            />
+            {query.length > 0 && (
+              <TouchableOpacity
+                style={styles.clearButton}
+                onPress={() => handleSearch('')}
+              >
+                <Text style={styles.clearButtonText}>✕</Text>
+              </TouchableOpacity>
+            )}
+          </View>
+        )}
+
+        {activeTab === 'murmurs' ? (
+          <FlatList
+            data={exploreMurmurs}
+            renderItem={({ item }) => (
+              <MurmurItem
+                murmur={item}
+                onLike={handleLike}
+                onDelete={handleDelete}
+                onMurmurPress={handleMurmurPress}
+                onUserPress={handleUserPress}
+              />
+            )}
+            keyExtractor={(item) => item.id}
+            refreshControl={
+              <RefreshControl
+                refreshing={allMurmurs.isLoading}
+                onRefresh={handleRefresh}
+                tintColor="#1DA1F2"
+                colors={['#1DA1F2']}
+              />
+            }
+            ListEmptyComponent={renderEmptyState}
+            showsVerticalScrollIndicator={false}
+            contentContainerStyle={exploreMurmurs.length === 0 ? styles.emptyContainer : null}
+            ListFooterComponent={
+              allMurmurs.isLoading ? (
+                <View style={styles.footerLoader}>
+                  <ActivityIndicator size="small" color="#1DA1F2" />
+                </View>
+              ) : null
+            }
+          />
+        ) : (
+          <FlatList
+            data={usersState.search.users}
+            renderItem={renderUser}
+            keyExtractor={(item) => item.id}
+            ListEmptyComponent={renderEmptyState}
+            showsVerticalScrollIndicator={false}
+            contentContainerStyle={usersState.search.users.length === 0 ? styles.emptyContainer : null}
+            ListFooterComponent={
+              usersState.search.isLoading ? (
+                <View style={styles.footerLoader}>
+                  <ActivityIndicator size="small" color="#1DA1F2" />
+                </View>
+              ) : null
+            }
+          />
+        )}
       </KeyboardAvoidingView>
     </SafeAreaView>
   );
@@ -179,6 +297,28 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: '#ffffff',
+  },
+  tabs: {
+    flexDirection: 'row',
+    borderBottomWidth: 1,
+    borderBottomColor: '#E1E8ED',
+  },
+  tab: {
+    flex: 1,
+    paddingVertical: 16,
+    alignItems: 'center',
+  },
+  activeTab: {
+    borderBottomWidth: 2,
+    borderBottomColor: '#1DA1F2',
+  },
+  tabText: {
+    fontSize: 16,
+    color: '#657786',
+    fontWeight: '600',
+  },
+  activeTabText: {
+    color: '#1DA1F2',
   },
   searchContainer: {
     flexDirection: 'row',

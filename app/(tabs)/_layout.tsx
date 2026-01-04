@@ -1,22 +1,48 @@
-import React from 'react';
+import React, { useEffect } from 'react';
 import FontAwesome from '@expo/vector-icons/FontAwesome';
 import { Link, Tabs } from 'expo-router';
-import { Pressable } from 'react-native';
+import { Pressable, View, Text, StyleSheet } from 'react-native';
 
 import Colors from '@/constants/Colors';
 import { useColorScheme } from '@/components/useColorScheme';
 import { useClientOnlyValue } from '@/components/useClientOnlyValue';
+import { useNotifications } from '@/src/store/hooks';
 
 // You can explore the built-in icon families and icons on the web at https://icons.expo.fyi/
 function TabBarIcon(props: {
   name: React.ComponentProps<typeof FontAwesome>['name'];
   color: string;
+  badge?: number;
 }) {
-  return <FontAwesome size={28} style={{ marginBottom: -3 }} {...props} />;
+  const { badge, ...iconProps } = props;
+  
+  return (
+    <View>
+      <FontAwesome size={28} style={{ marginBottom: -3 }} {...iconProps} />
+      {badge && badge > 0 && (
+        <View style={styles.badge}>
+          <Text style={styles.badgeText}>{badge > 99 ? '99+' : badge}</Text>
+        </View>
+      )}
+    </View>
+  );
 }
 
 export default function TabLayout() {
   const colorScheme = useColorScheme();
+  const { unreadCount, fetchUnreadCount } = useNotifications();
+
+  useEffect(() => {
+    // Fetch unread count on mount
+    fetchUnreadCount();
+
+    // Poll for unread count every 30 seconds
+    const interval = setInterval(() => {
+      fetchUnreadCount();
+    }, 30000);
+
+    return () => clearInterval(interval);
+  }, []);
 
   return (
     <Tabs
@@ -50,15 +76,15 @@ export default function TabLayout() {
       <Tabs.Screen
         name="search"
         options={{
-          title: 'Search',
-          tabBarIcon: ({ color }) => <TabBarIcon name="search" color={color} />,
+          title: 'Explore',
+          tabBarIcon: ({ color }) => <TabBarIcon name="globe" color={color} />,
         }}
       />
       <Tabs.Screen
         name="notifications"
         options={{
           title: 'Notifications',
-          tabBarIcon: ({ color }) => <TabBarIcon name="bell" color={color} />,
+          tabBarIcon: ({ color }) => <TabBarIcon name="bell" color={color} badge={unreadCount} />,
         }}
       />
       <Tabs.Screen
@@ -71,3 +97,23 @@ export default function TabLayout() {
     </Tabs>
   );
 }
+
+const styles = StyleSheet.create({
+  badge: {
+    position: 'absolute',
+    right: -10,
+    top: -5,
+    backgroundColor: '#E91E63',
+    borderRadius: 10,
+    minWidth: 20,
+    height: 20,
+    justifyContent: 'center',
+    alignItems: 'center',
+    paddingHorizontal: 4,
+  },
+  badgeText: {
+    color: '#fff',
+    fontSize: 11,
+    fontWeight: 'bold',
+  },
+});

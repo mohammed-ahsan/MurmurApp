@@ -29,7 +29,7 @@ const LoginScreen = () => {
   const [isFormValid, setIsFormValid] = useState(false);
   
   const router = useRouter();
-  const { login, isLoading, error } = useAuth();
+  const { login, isLoading, error, clearError } = useAuth();
   console.log(error,"error login")
 
   // Validate individual fields
@@ -81,7 +81,11 @@ const LoginScreen = () => {
     if (password.trim().length > 0 && formErrors.password) {
       setFormErrors(prev => ({ ...prev, password: undefined }));
     }
-  }, [identifier, password]);
+    
+    if ((identifier || password) && error) {
+      clearError();
+    }
+  }, [identifier, password, error, clearError]);
 
   const handleLogin = async () => {
     // Clear previous errors

@@ -37,21 +37,22 @@ const UserProfileScreen = () => {
   
   const { user: currentUser } = useAuth();
   const { userProfile, fetchUserProfile, followUser, unfollowUser } = useUsers();
-  const { userMurmurs, fetchUserMurmurs, likeMurmur } = useMurmurs();
+  const { userMurmurs: allUserMurmurs, fetchUserMurmurs, likeMurmur } = useMurmurs();
   
   // Get the specific user profile for this userId
   const currentUserProfile = userProfile[userId]?.user;
   const isLoadingProfile = userProfile[userId]?.isLoading || false;
+  const userMurmurs = allUserMurmurs[userId] || { murmurs: [], isLoading: false, hasMore: false, pagination: null, error: null };
 
   useEffect(() => {
     fetchUserProfile(userId);
     fetchUserMurmurs({ userId, page: 1, limit: 10, refresh: true });
-  }, [fetchUserProfile, fetchUserMurmurs, userId]);
+  }, [userId]);
 
   const handleRefresh = useCallback(() => {
     fetchUserProfile(userId);
     fetchUserMurmurs({ userId, page: 1, limit: 10, refresh: true });
-  }, [fetchUserProfile, fetchUserMurmurs, userId]);
+  }, [userId]);
 
   const handleFollow = useCallback(async () => {
     if (!currentUserProfile) return;

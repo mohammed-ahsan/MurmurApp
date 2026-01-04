@@ -26,6 +26,15 @@ interface MurmursState {
       hasMore: boolean;
     };
   };
+  userLikedMurmurs: {
+    [userId: string]: {
+      murmurs: Murmur[];
+      pagination: PaginationInfo | null;
+      isLoading: boolean;
+      error: string | null;
+      hasMore: boolean;
+    };
+  };
   currentMurmur: {
     murmur: Murmur | null;
     isLoading: boolean;
@@ -64,6 +73,7 @@ const initialState: MurmursState = {
     hasMore: true,
   },
   userMurmurs: {},
+  userLikedMurmurs: {},
   currentMurmur: {
     murmur: null,
     isLoading: false,
@@ -110,6 +120,18 @@ export const fetchUserMurmurs = createAsyncThunk(
   async ({ userId, page = 1, limit = 10, refresh = false }: { userId: string; page?: number; limit?: number; refresh?: boolean }, { rejectWithValue }) => {
     try {
       const response = await murmursAPI.getUserMurmurs(userId, page, limit);
+      return { ...response, userId, refresh };
+    } catch (error: any) {
+      return rejectWithValue(error.message);
+    }
+  }
+);
+
+export const fetchUserLikedMurmurs = createAsyncThunk(
+  'murmurs/fetchUserLikedMurmurs',
+  async ({ userId, page = 1, limit = 10, refresh = false }: { userId: string; page?: number; limit?: number; refresh?: boolean }, { rejectWithValue }) => {
+    try {
+      const response = await murmursAPI.getUserLikedMurmurs(userId, page, limit);
       return { ...response, userId, refresh };
     } catch (error: any) {
       return rejectWithValue(error.message);
@@ -196,6 +218,9 @@ const murmursSlice = createSlice({
     resetUserMurmurs: (state, action: PayloadAction<string>) => {
       const userId = action.payload;
       delete state.userMurmurs[userId];
+    },
+    clearAllMurmurs: (state) => {
+      return initialState;
     },
   },
   extraReducers: (builder) => {
@@ -305,6 +330,62 @@ const murmursSlice = createSlice({
         state.userMurmurs[userId].error = action.payload as string;
       });
 
+    // Fetch user liked murmurs
+    builder
+      .addCase(fetchUserLikedMurmurs.pending, (state, action) => {
+        const userId = action.meta.arg.userId;
+        if (!state.userLikedMurmurs[userId]) {
+          state.userLikedMurmurs[userId] = {
+            murmurs: [],
+            pagination: null,
+            isLoading: false,
+            error: null,
+            hasMore: true,
+          };
+        }
+        state.userLikedMurmurs[userId].isLoading = true;
+        state.userLikedMurmurs[userId].error = null;
+      })
+      .addCase(fetchUserLikedMurmurs.fulfilled, (state, action) => {
+        const { userId, murmurs, pagination, refresh } = action.payload;
+        
+        if (!state.userLikedMurmurs[userId]) {
+          state.userLikedMurmurs[userId] = {
+            murmurs: [],
+            pagination: null,
+            isLoading: false,
+            error: null,
+            hasMore: true,
+          };
+        }
+        
+        state.userLikedMurmurs[userId].isLoading = false;
+        
+        if (refresh) {
+          state.userLikedMurmurs[userId].murmurs = murmurs;
+        } else {
+          state.userLikedMurmurs[userId].murmurs = [...state.userLikedMurmurs[userId].murmurs, ...murmurs];
+        }
+        
+        state.userLikedMurmurs[userId].pagination = pagination;
+        state.userLikedMurmurs[userId].hasMore = pagination.hasNextPage;
+        state.userLikedMurmurs[userId].error = null;
+      })
+      .addCase(fetchUserLikedMurmurs.rejected, (state, action) => {
+        const userId = action.meta.arg.userId;
+        if (!state.userLikedMurmurs[userId]) {
+          state.userLikedMurmurs[userId] = {
+            murmurs: [],
+            pagination: null,
+            isLoading: false,
+            error: null,
+            hasMore: true,
+          };
+        }
+        state.userLikedMurmurs[userId].isLoading = false;
+        state.userLikedMurmurs[userId].error = action.payload as string;
+      });
+
     // Fetch single murmur
     builder
       .addCase(fetchMurmur.pending, (state) => {
@@ -361,6 +442,11 @@ const murmursSlice = createSlice({
           state.userMurmurs[userId].murmurs = state.userMurmurs[userId].murmurs.filter(m => m.id !== murmurId);
         });
         
+        // Remove from user liked murmurs
+        Object.keys(state.userLikedMurmurs).forEach(userId => {
+          state.userLikedMurmurs[userId].murmurs = state.userLikedMurmurs[userId].murmurs.filter(m => m.id !== murmurId);
+        });
+        
         // Clear current murmur if it's the one being deleted
         if (state.currentMurmur.murmur?.id === murmurId) {
           state.currentMurmur.murmur = null;
@@ -403,6 +489,15 @@ const murmursSlice = createSlice({
           }
         });
         
+        // Update in user liked murmurs
+        Object.keys(state.userLikedMurmurs).forEach(userId => {
+          const likedMurmur = state.userLikedMurmurs[userId].murmurs.find(m => m.id === id);
+          if (likedMurmur) {
+            likedMurmur.isLikedByUser = isLiked;
+            likedMurmur.likesCount = likesCount;
+          }
+        });
+        
         // Update current murmur
         if (state.currentMurmur.murmur?.id === id) {
           state.currentMurmur.murmur.isLikedByUser = isLiked;
@@ -419,12 +514,13 @@ const murmursSlice = createSlice({
 });
 
 // Export actions
-export const { clearMurmursError, resetUserMurmurs } = murmursSlice.actions;
+export const { clearMurmursError, resetUserMurmurs, clearAllMurmurs } = murmursSlice.actions;
 
 // Selectors
 export const selectTimeline = (state: { murmurs: MurmursState }) => state.murmurs.timeline;
 export const selectAllMurmurs = (state: { murmurs: MurmursState }) => state.murmurs.allMurmurs;
 export const selectUserMurmurs = (userId: string) => (state: { murmurs: MurmursState }) => state.murmurs.userMurmurs[userId];
+export const selectUserLikedMurmurs = (userId: string) => (state: { murmurs: MurmursState }) => state.murmurs.userLikedMurmurs[userId];
 export const selectCurrentMurmur = (state: { murmurs: MurmursState }) => state.murmurs.currentMurmur;
 export const selectCreateMurmur = (state: { murmurs: MurmursState }) => state.murmurs.createMurmur;
 export const selectDeleteMurmur = (state: { murmurs: MurmursState }) => state.murmurs.deleteMurmur;

@@ -180,6 +180,9 @@ const usersSlice = createSlice({
       const userId = action.payload;
       delete state.following[userId];
     },
+    clearAllUsers: (state: UsersState) => {
+      return initialState;
+    },
   },
   extraReducers: (builder) => {
     // Fetch user profile
@@ -447,7 +450,8 @@ export const {
   clearSearch, 
   resetUserProfile, 
   resetUserFollowers, 
-  resetUserFollowing 
+  resetUserFollowing,
+  clearAllUsers
 } = usersSlice.actions;
 
 // Selectors

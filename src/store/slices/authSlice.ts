@@ -26,6 +26,7 @@ export const restoreToken = createAsyncThunk(
   async (_, { rejectWithValue }) => {
     try {
       const token = await AsyncStorage.getItem('auth_token');
+      console.log(token,"auth_token")
       if (token) {
         // Validate token by fetching current user
         const user = await authAPI.getCurrentUser();
@@ -35,6 +36,7 @@ export const restoreToken = createAsyncThunk(
     } catch (error: any) {
       // If token is invalid, remove it
       await AsyncStorage.removeItem('auth_token');
+      console.log(error.message,"error")
       return rejectWithValue(error.message);
     }
   }
@@ -104,9 +106,16 @@ export const changePassword = createAsyncThunk(
 
 export const logoutUser = createAsyncThunk(
   'auth/logout',
-  async (_, { rejectWithValue }) => {
+  async (_, { rejectWithValue, dispatch }) => {
     try {
       await authAPI.logout();
+      
+      // Clear all Redux slices on logout
+      dispatch({ type: 'murmurs/clearAllMurmurs' });
+      dispatch({ type: 'users/clearAllUsers' });
+      dispatch({ type: 'notifications/clearNotifications' });
+      dispatch({ type: 'ui/resetUIState' });
+      
       return 'Logged out successfully';
     } catch (error: any) {
       return rejectWithValue(error.message);
@@ -157,7 +166,7 @@ const authSlice = createSlice({
         state.token = null;
         state.user = null;
         state.isAuthenticated = false;
-        state.error = action.payload as string;
+        state.error = null; // Don't show error for automatic token restoration failures
       });
 
     // Login

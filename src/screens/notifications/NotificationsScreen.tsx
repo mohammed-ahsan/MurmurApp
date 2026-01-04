@@ -1,4 +1,4 @@
-import React, { useEffect, useCallback } from 'react';
+import React, { useEffect, useCallback, useState } from 'react';
 import {
   View,
   Text,
@@ -12,47 +12,101 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
 
 // Components
-import LoadingSpinner from '../../components/common/LoadingSpinner';
 import EmptyState from '../../components/common/EmptyState';
 
 // Hooks
-import { useUI } from '../../store/hooks';
+import { useNotifications } from '../../store/hooks';
 
 // Types
 import { Notification } from '../../types';
 
 const NotificationsScreen = () => {
   const router = useRouter();
-  const { notifications, removeNotification, clearNotifications } = useUI();
+  const { 
+    notifications, 
+    isLoading, 
+    hasMore, 
+    nextCursor,
+    fetchNotifications, 
+    fetchUnreadCount,
+    markAsRead, 
+    markAllAsRead,
+    deleteNotification 
+  } = useNotifications();
+
+  const [refreshing, setRefreshing] = useState(false);
+  const [loadingMore, setLoadingMore] = useState(false);
 
   useEffect(() => {
-    // TODO: Fetch notifications from API
+    loadNotifications();
+    loadUnreadCount();
   }, []);
 
-  const handleRefresh = useCallback(() => {
-    // TODO: Refresh notifications
-  }, []);
+  const loadNotifications = async () => {
+    try {
+      await fetchNotifications();
+    } catch (error) {
+      console.error('Failed to load notifications:', error);
+    }
+  };
 
-  const handleNotificationPress = useCallback((notification: Notification) => {
-    // Mark as read and navigate to relevant screen
+  const loadUnreadCount = async () => {
+    try {
+      await fetchUnreadCount();
+    } catch (error) {
+      console.error('Failed to load unread count:', error);
+    }
+  };
+
+  const handleRefresh = async () => {
+    setRefreshing(true);
+    await Promise.all([loadNotifications(), loadUnreadCount()]);
+    setRefreshing(false);
+  };
+
+  const handleLoadMore = async () => {
+    if (loadingMore || !hasMore || !nextCursor) return;
+    
+    setLoadingMore(true);
+    try {
+      await fetchNotifications({ cursor: nextCursor });
+    } catch (error) {
+      console.error('Failed to load more notifications:', error);
+    }
+    setLoadingMore(false);
+  };
+
+  const handleNotificationPress = async (notification: Notification) => {
+    // Mark as read
     if (!notification.isRead) {
-      // TODO: Mark notification as read
+      await markAsRead(notification.id);
     }
 
-    if (notification.murmurId) {
-      router.push(`/murmur/${notification.murmurId}` as any);
-    } else if (notification.userId) {
-      router.push(`/user/${notification.userId}` as any);
+    // Navigate based on notification type
+    if (notification.type === 'like' || notification.type === 'reply') {
+      if (notification.murmurId) {
+        router.push(`/murmur/${notification.murmurId}` as any);
+      }
+    } else if (notification.type === 'follow') {
+      router.push(`/user/${notification.actor.id}` as any);
     }
-  }, [router]);
+  };
 
-  const handleRemoveNotification = useCallback((notificationId: string) => {
-    removeNotification(notificationId);
-  }, [removeNotification]);
+  const handleMarkAllAsRead = async () => {
+    try {
+      await markAllAsRead();
+    } catch (error) {
+      console.error('Failed to mark all as read:', error);
+    }
+  };
 
-  const handleClearAll = useCallback(() => {
-    clearNotifications();
-  }, [clearNotifications]);
+  const handleDeleteNotification = async (notificationId: string) => {
+    try {
+      await deleteNotification(notificationId);
+    } catch (error) {
+      console.error('Failed to delete notification:', error);
+    }
+  };
 
   const formatDate = (date: Date) => {
     const now = new Date();
@@ -70,17 +124,15 @@ const NotificationsScreen = () => {
   };
 
   const getNotificationText = (notification: Notification) => {
-    const { user, type } = notification;
+    const { actor, type } = notification;
     
     switch (type) {
       case 'like':
-        return `${user.displayName} liked your murmur`;
+        return `${actor.displayName} liked your murmur`;
       case 'follow':
-        return `${user.displayName} started following you`;
+        return `${actor.displayName} started following you`;
       case 'reply':
-        return `${user.displayName} replied to your murmur`;
-      case 'retweet':
-        return `${user.displayName} retweeted your murmur`;
+        return `${actor.displayName} replied to your murmur`;
       default:
         return 'New notification';
     }
@@ -94,8 +146,6 @@ const NotificationsScreen = () => {
         return '👤';
       case 'reply':
         return '💬';
-      case 'retweet':
-        return '🔄';
       default:
         return '🔔';
     }
@@ -132,12 +182,12 @@ const NotificationsScreen = () => {
 
       <TouchableOpacity
         style={styles.removeButton}
-        onPress={() => handleRemoveNotification(item.id)}
+        onPress={() => handleDeleteNotification(item.id)}
       >
         <Text style={styles.removeButtonText}>✕</Text>
       </TouchableOpacity>
     </TouchableOpacity>
-  ), [handleNotificationPress, handleRemoveNotification]);
+  ), []);
 
   const renderEmptyState = useCallback(() => (
     <EmptyState
@@ -147,18 +197,38 @@ const NotificationsScreen = () => {
     />
   ), []);
 
-  const renderFooter = useCallback(() => (
-    <View style={styles.footer}>
-      {notifications.length > 0 && (
-        <TouchableOpacity
-          style={styles.clearAllButton}
-          onPress={handleClearAll}
-        >
-          <Text style={styles.clearAllButtonText}>Clear All</Text>
-        </TouchableOpacity>
-      )}
-    </View>
-  ), [notifications.length, handleClearAll]);
+  const renderFooter = useCallback(() => {
+    if (loadingMore) {
+      return (
+        <View style={styles.footerLoader}>
+          <ActivityIndicator size="small" color="#1DA1F2" />
+        </View>
+      );
+    }
+    
+    return (
+      <View style={styles.footer}>
+        {notifications.length > 0 && (
+          <TouchableOpacity
+            style={styles.clearAllButton}
+            onPress={handleMarkAllAsRead}
+          >
+            <Text style={styles.clearAllButtonText}>Mark All as Read</Text>
+          </TouchableOpacity>
+        )}
+      </View>
+    );
+  }, [notifications.length, loadingMore]);
+
+  if (isLoading && notifications.length === 0) {
+    return (
+      <SafeAreaView style={styles.container}>
+        <View style={styles.loadingContainer}>
+          <ActivityIndicator size="large" color="#1DA1F2" />
+        </View>
+      </SafeAreaView>
+    );
+  }
 
   if (notifications.length === 0) {
     return (
@@ -176,12 +246,14 @@ const NotificationsScreen = () => {
         keyExtractor={(item) => item.id}
         refreshControl={
           <RefreshControl
-            refreshing={false}
+            refreshing={refreshing}
             onRefresh={handleRefresh}
             tintColor="#1DA1F2"
             colors={['#1DA1F2']}
           />
         }
+        onEndReached={handleLoadMore}
+        onEndReachedThreshold={0.5}
         ListFooterComponent={renderFooter}
         showsVerticalScrollIndicator={false}
       />
@@ -193,6 +265,11 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: '#ffffff',
+  },
+  loadingContainer: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
   },
   notificationItem: {
     flexDirection: 'row',
@@ -249,15 +326,20 @@ const styles = StyleSheet.create({
     borderTopColor: '#E1E8ED',
   },
   clearAllButton: {
-    backgroundColor: '#E0245E',
+    backgroundColor: '#1DA1F2',
     paddingVertical: 12,
-    borderRadius: 8,
+    paddingHorizontal: 24,
+    borderRadius: 25,
     alignItems: 'center',
   },
   clearAllButtonText: {
-    color: '#ffffff',
+    color: '#FFFFFF',
     fontSize: 16,
     fontWeight: '600',
+  },
+  footerLoader: {
+    padding: 16,
+    alignItems: 'center',
   },
 });
 

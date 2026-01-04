@@ -98,10 +98,10 @@ const MurmurItem: React.FC<MurmurItemProps> = ({
 
       <View style={styles.actions}>
         <TouchableOpacity onPress={handleLike} style={styles.actionButton}>
-          <Text style={[styles.actionText, murmur.isLiked && styles.liked]}>
-            {murmur.isLiked ? '❤️' : '🤍'}
+          <Text style={[styles.actionText, murmur.isLikedByUser && styles.liked]}>
+            {murmur.isLikedByUser ? '❤️' : '🤍'}
           </Text>
-          <Text style={[styles.actionCount, murmur.isLiked && styles.liked]}>
+          <Text style={[styles.actionCount, murmur.isLikedByUser && styles.liked]}>
             {murmur.likesCount}
           </Text>
         </TouchableOpacity>
