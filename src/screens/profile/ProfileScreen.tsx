@@ -163,7 +163,7 @@ const ProfileScreen = () => {
           title="No Murmurs Yet"
           subtitle="Share your thoughts with the world"
           actionText="Create Your First Murmur"
-          onAction={() => router.push('/murmur/create' as any)}
+          onAction={() => router.push('/modal')}
         />
       );
     } else {

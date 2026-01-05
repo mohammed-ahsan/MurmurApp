@@ -277,6 +277,18 @@ const authSlice = createSlice({
         state.isLoading = false;
         state.error = action.payload as string;
       });
+
+    // Listen for user murmurs fetch to update current user data
+    builder.addMatcher(
+      (action) => action.type === 'murmurs/fetchUserMurmurs/fulfilled',
+      (state, action: any) => {
+        const { userId, user } = action.payload;
+        // Update the current user if the fetched murmurs belong to the current user
+        if (state.user && state.user.id === userId && user) {
+          state.user = user;
+        }
+      }
+    );
   },
 });
 

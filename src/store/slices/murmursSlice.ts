@@ -1,5 +1,5 @@
 import { createSlice, createAsyncThunk, PayloadAction } from '@reduxjs/toolkit';
-import { murmursAPI, Murmur, PaginationInfo } from '../../services/api';
+import { murmursAPI, Murmur, PaginationInfo, User } from '../../services/api';
 
 // Murmurs state interface
 interface MurmursState {
@@ -24,6 +24,7 @@ interface MurmursState {
       isLoading: boolean;
       error: string | null;
       hasMore: boolean;
+      user?: User;
     };
   };
   userLikedMurmurs: {
@@ -291,7 +292,7 @@ const murmursSlice = createSlice({
         state.userMurmurs[userId].error = null;
       })
       .addCase(fetchUserMurmurs.fulfilled, (state, action) => {
-        const { userId, murmurs, pagination, refresh } = action.payload;
+        const { userId, murmurs, pagination, refresh, user } = action.payload;
         
         if (!state.userMurmurs[userId]) {
           state.userMurmurs[userId] = {
@@ -314,6 +315,9 @@ const murmursSlice = createSlice({
         state.userMurmurs[userId].pagination = pagination;
         state.userMurmurs[userId].hasMore = pagination.hasNextPage;
         state.userMurmurs[userId].error = null;
+        
+        // Store the user data to be used by the auth slice
+        state.userMurmurs[userId].user = user;
       })
       .addCase(fetchUserMurmurs.rejected, (state, action) => {
         const userId = action.meta.arg.userId;

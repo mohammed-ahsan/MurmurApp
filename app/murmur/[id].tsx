@@ -36,7 +36,7 @@ export default function MurmurDetailScreen() {
     if (id) {
       fetchMurmur(id);
     }
-  }, [fetchMurmur, id]);
+  }, []);
 
   const handleLike = useCallback(async () => {
     if (!murmur) return;
