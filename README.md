@@ -2,6 +2,10 @@
 
 A modern social media mobile application built with React Native and Expo, featuring a Twitter-like microblogging experience. Create short posts called "murmurs", follow users, like posts, and receive real-time notifications.
 
+## 📱 Demo
+
+[![Watch the demo](https://img.youtube.com/vi/TfPk1MvzgJg/0.jpg)](https://www.youtube.com/watch?v=TfPk1MvzgJg)
+
 ## 🚀 Features
 
 ### Core Features
@@ -237,10 +241,6 @@ The app uses a centralized API client (`src/services/api.ts`) with:
 - **Response Interceptor**: Handles errors and automatic logout on 401
 - **API Modules**: Organized by feature (auth, murmurs, users, notifications)
 
-## 📱 Screenshots/Demo
-
-Check out the live demo: [YouTube Demo](https://youtube.com/shorts/TfPk1MvzgJg?feature=share)
-
 ## 🛠️ Available Scripts
 
 ```bash
@@ -351,10 +351,6 @@ This project is licensed under the ISC License.
 
 **Mohammed Ahsan**
 - GitHub: [@mohammed-ahsan](https://github.com/mohammed-ahsan)
-
-## 🌐 Demo
-
-Watch the live demo: [YouTube Short](https://youtube.com/shorts/TfPk1MvzgJg?feature=share)
 
 ## 🙏 Acknowledgments
 
