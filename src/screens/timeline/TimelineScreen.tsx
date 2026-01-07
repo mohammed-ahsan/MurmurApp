@@ -98,7 +98,7 @@ const TimelineScreen = () => {
       murmur={item}
       onLike={handleLike}
       onDelete={handleDelete}
-      onMurmurPress={handleMurmurPress}
+      onPress={() => handleMurmurPress(item)}
       onUserPress={handleUserPress}
     />
   ), [handleLike, handleDelete, handleMurmurPress, handleUserPress]);

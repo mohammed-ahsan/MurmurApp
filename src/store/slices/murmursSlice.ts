@@ -41,6 +41,15 @@ interface MurmursState {
     isLoading: boolean;
     error: string | null;
   };
+  replies: {
+    [murmurId: string]: {
+      replies: Murmur[];
+      pagination: PaginationInfo | null;
+      isLoading: boolean;
+      error: string | null;
+      hasMore: boolean;
+    };
+  };
   createMurmur: {
     isLoading: boolean;
     error: string | null;
@@ -80,6 +89,7 @@ const initialState: MurmursState = {
     isLoading: false,
     error: null,
   },
+  replies: {},
   createMurmur: {
     isLoading: false,
     error: null,
@@ -152,12 +162,24 @@ export const fetchMurmur = createAsyncThunk(
   }
 );
 
+export const fetchReplies = createAsyncThunk(
+  'murmurs/fetchReplies',
+  async ({ murmurId, page = 1, limit = 10, refresh = false }: { murmurId: string; page?: number; limit?: number; refresh?: boolean }, { rejectWithValue }) => {
+    try {
+      const response = await murmursAPI.getReplies(murmurId, page, limit);
+      return { ...response, murmurId, refresh };
+    } catch (error: any) {
+      return rejectWithValue(error.message);
+    }
+  }
+);
+
 export const createMurmur = createAsyncThunk(
   'murmurs/createMurmur',
-  async (content: string, { rejectWithValue }) => {
+  async ({ content, replyToId }: { content: string; replyToId?: string }, { rejectWithValue }) => {
     try {
-      const murmur = await murmursAPI.createMurmur(content);
-      return murmur;
+      const murmur = await murmursAPI.createMurmur(content, replyToId);
+      return { murmur, replyToId };
     } catch (error: any) {
       return rejectWithValue(error.message);
     }
@@ -406,6 +428,62 @@ const murmursSlice = createSlice({
         state.currentMurmur.error = action.payload as string;
       });
 
+    // Fetch replies
+    builder
+      .addCase(fetchReplies.pending, (state, action) => {
+        const murmurId = action.meta.arg.murmurId;
+        if (!state.replies[murmurId]) {
+          state.replies[murmurId] = {
+            replies: [],
+            pagination: null,
+            isLoading: false,
+            error: null,
+            hasMore: true,
+          };
+        }
+        state.replies[murmurId].isLoading = true;
+        state.replies[murmurId].error = null;
+      })
+      .addCase(fetchReplies.fulfilled, (state, action) => {
+        const { murmurId, replies, pagination, refresh } = action.payload;
+        
+        if (!state.replies[murmurId]) {
+          state.replies[murmurId] = {
+            replies: [],
+            pagination: null,
+            isLoading: false,
+            error: null,
+            hasMore: true,
+          };
+        }
+        
+        state.replies[murmurId].isLoading = false;
+        
+        if (refresh) {
+          state.replies[murmurId].replies = replies;
+        } else {
+          state.replies[murmurId].replies = [...state.replies[murmurId].replies, ...replies];
+        }
+        
+        state.replies[murmurId].pagination = pagination;
+        state.replies[murmurId].hasMore = pagination.hasNextPage;
+        state.replies[murmurId].error = null;
+      })
+      .addCase(fetchReplies.rejected, (state, action) => {
+        const murmurId = action.meta.arg.murmurId;
+        if (!state.replies[murmurId]) {
+          state.replies[murmurId] = {
+            replies: [],
+            pagination: null,
+            isLoading: false,
+            error: null,
+            hasMore: true,
+          };
+        }
+        state.replies[murmurId].isLoading = false;
+        state.replies[murmurId].error = action.payload as string;
+      });
+
     // Create murmur
     builder
       .addCase(createMurmur.pending, (state) => {
@@ -416,9 +494,36 @@ const murmursSlice = createSlice({
         state.createMurmur.isLoading = false;
         state.createMurmur.error = null;
         
-        // Add to timeline and all murmurs at the beginning
-        state.timeline.murmurs.unshift(action.payload);
-        state.allMurmurs.murmurs.unshift(action.payload);
+        const { murmur, replyToId } = action.payload;
+        
+        // If it's a reply, add to replies list and increment count
+        if (replyToId) {
+          if (!state.replies[replyToId]) {
+            state.replies[replyToId] = {
+              replies: [],
+              pagination: null,
+              isLoading: false,
+              error: null,
+              hasMore: true,
+            };
+          }
+          state.replies[replyToId].replies.unshift(murmur);
+          
+          // Update reply count in current murmur
+          if (state.currentMurmur.murmur?.id === replyToId) {
+            state.currentMurmur.murmur.repliesCount += 1;
+          }
+        } else {
+          // Add to all murmurs (explore/search) only - NOT to timeline
+          // Timeline should only show followed users' murmurs
+          state.allMurmurs.murmurs.unshift(murmur);
+          
+          // Add to user's own murmurs if they exist in state
+          const userId = typeof murmur.userId === 'string' ? murmur.userId : murmur.userId.id;
+          if (userId && state.userMurmurs[userId]) {
+            state.userMurmurs[userId].murmurs.unshift(murmur);
+          }
+        }
       })
       .addCase(createMurmur.rejected, (state, action) => {
         state.createMurmur.isLoading = false;
@@ -449,6 +554,19 @@ const murmursSlice = createSlice({
         // Remove from user liked murmurs
         Object.keys(state.userLikedMurmurs).forEach(userId => {
           state.userLikedMurmurs[userId].murmurs = state.userLikedMurmurs[userId].murmurs.filter(m => m.id !== murmurId);
+        });
+        
+        // Remove from replies and decrement parent reply count
+        Object.keys(state.replies).forEach(parentId => {
+          const replyIndex = state.replies[parentId].replies.findIndex(r => r.id === murmurId);
+          if (replyIndex !== -1) {
+            state.replies[parentId].replies = state.replies[parentId].replies.filter(r => r.id !== murmurId);
+            
+            // Decrement reply count in current murmur if it's the parent
+            if (state.currentMurmur.murmur?.id === parentId) {
+              state.currentMurmur.murmur.repliesCount = Math.max(0, state.currentMurmur.murmur.repliesCount - 1);
+            }
+          }
         });
         
         // Clear current murmur if it's the one being deleted
@@ -502,6 +620,15 @@ const murmursSlice = createSlice({
           }
         });
         
+        // Update in replies
+        Object.keys(state.replies).forEach(parentId => {
+          const reply = state.replies[parentId].replies.find(r => r.id === id);
+          if (reply) {
+            reply.isLikedByUser = isLiked;
+            reply.likesCount = likesCount;
+          }
+        });
+        
         // Update current murmur
         if (state.currentMurmur.murmur?.id === id) {
           state.currentMurmur.murmur.isLikedByUser = isLiked;
@@ -526,6 +653,7 @@ export const selectAllMurmurs = (state: { murmurs: MurmursState }) => state.murm
 export const selectUserMurmurs = (userId: string) => (state: { murmurs: MurmursState }) => state.murmurs.userMurmurs[userId];
 export const selectUserLikedMurmurs = (userId: string) => (state: { murmurs: MurmursState }) => state.murmurs.userLikedMurmurs[userId];
 export const selectCurrentMurmur = (state: { murmurs: MurmursState }) => state.murmurs.currentMurmur;
+export const selectReplies = (murmurId: string) => (state: { murmurs: MurmursState }) => state.murmurs.replies[murmurId];
 export const selectCreateMurmur = (state: { murmurs: MurmursState }) => state.murmurs.createMurmur;
 export const selectDeleteMurmur = (state: { murmurs: MurmursState }) => state.murmurs.deleteMurmur;
 export const selectLikeMurmur = (murmurId: string) => (state: { murmurs: MurmursState }) => state.murmurs.likeMurmur[murmurId];

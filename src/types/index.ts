@@ -21,9 +21,7 @@ export interface Murmur {
   content: string;
   likesCount: number;
   repliesCount: number;
-  retweetsCount: number;
   isLikedByUser?: boolean;
-  isRetweeted?: boolean;
   createdAt: Date;
   updatedAt: Date;
 }

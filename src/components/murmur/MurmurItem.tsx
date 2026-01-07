@@ -12,17 +12,19 @@ import { Murmur } from '../../types';
 interface MurmurItemProps {
   murmur: Murmur;
   onLike: (murmurId: string) => void;
-  onDelete: (murmurId: string) => void;
-  onMurmurPress: (murmur: Murmur) => void;
+  onDelete?: (murmurId: string) => void;
+  onPress?: () => void;
   onUserPress: (userId: string) => void;
+  showReplyButton?: boolean;
 }
 
 const MurmurItem: React.FC<MurmurItemProps> = ({
   murmur,
   onLike,
   onDelete,
-  onMurmurPress,
+  onPress,
   onUserPress,
+  showReplyButton = true,
 }) => {
   const { user } = useAuth();
   
@@ -46,6 +48,7 @@ const MurmurItem: React.FC<MurmurItemProps> = ({
   };
 
   const handleDelete = () => {
+    if (!onDelete) return;
     Alert.alert(
       'Delete Murmur',
       'Are you sure you want to delete this murmur?',
@@ -57,7 +60,7 @@ const MurmurItem: React.FC<MurmurItemProps> = ({
   };
 
   const handleMurmurPress = () => {
-    onMurmurPress(murmur);
+    onPress?.();
   };
 
   const handleUserPress = () => {
@@ -106,15 +109,12 @@ const MurmurItem: React.FC<MurmurItemProps> = ({
           </Text>
         </TouchableOpacity>
 
-        <TouchableOpacity onPress={handleMurmurPress} style={styles.actionButton}>
-          <Text style={styles.actionText}>💬</Text>
-          <Text style={styles.actionCount}>{murmur.repliesCount}</Text>
-        </TouchableOpacity>
-
-        <TouchableOpacity onPress={handleMurmurPress} style={styles.actionButton}>
-          <Text style={styles.actionText}>🔄</Text>
-          <Text style={styles.actionCount}>{murmur.retweetsCount}</Text>
-        </TouchableOpacity>
+        {showReplyButton && (
+          <TouchableOpacity onPress={handleMurmurPress} style={styles.actionButton}>
+            <Text style={styles.actionText}>💬</Text>
+            <Text style={styles.actionCount}>{murmur.repliesCount}</Text>
+          </TouchableOpacity>
+        )}
       </View>
     </View>
   );

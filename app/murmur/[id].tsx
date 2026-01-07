@@ -11,6 +11,7 @@ import {
   Platform,
   TextInput,
 } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter, useLocalSearchParams } from 'expo-router';
 
 // Components
@@ -29,14 +30,17 @@ export default function MurmurDetailScreen() {
   const [replyContent, setReplyContent] = useState('');
   const [isReplying, setIsReplying] = useState(false);
   
-  const { murmur, fetchMurmur, likeMurmur, deleteMurmur } = useMurmurs();
+  const { currentMurmur, replies, fetchMurmur, fetchReplies, createMurmur, likeMurmur, deleteMurmur } = useMurmurs();
   const { user } = useAuth();
+  const murmur = currentMurmur?.murmur;
+  const repliesData = id ? replies[id] : null;
 
   useEffect(() => {
     if (id) {
       fetchMurmur(id);
+      fetchReplies({ murmurId: id, refresh: true });
     }
-  }, []);
+  }, [id]);
 
   const handleLike = useCallback(async () => {
     if (!murmur) return;
@@ -79,21 +83,44 @@ export default function MurmurDetailScreen() {
     router.push(`/user/${userId}` as any);
   }, [router]);
 
-  const handleReply = useCallback(() => {
-    if (!replyContent.trim()) {
+  const handleDeleteReply = useCallback(async (replyId: string) => {
+    try {
+      await deleteMurmur(replyId);
+      // Refresh replies after deletion
+      if (id) {
+        fetchReplies({ murmurId: id, refresh: true });
+        fetchMurmur(id); // Refresh to update reply count
+      }
+    } catch (error: any) {
+      Alert.alert('Error', error.message || 'Failed to delete reply');
+    }
+  }, [deleteMurmur, fetchReplies, fetchMurmur, id]);
+
+  const handleReply = useCallback(async () => {
+    if (!replyContent.trim() || !murmur) {
       Alert.alert('Error', 'Please enter a reply');
       return;
     }
 
     setIsReplying(true);
     
-    // TODO: Implement reply functionality
-    setTimeout(() => {
+    try {
+      await createMurmur({ content: replyContent.trim(), replyToId: murmur.id });
       setReplyContent('');
-      setIsReplying(false);
+      
+      // Refresh replies and murmur to update reply count
+      if (id) {
+        fetchReplies({ murmurId: id, refresh: true });
+        fetchMurmur(id);
+      }
+      
       Alert.alert('Success', 'Reply posted successfully');
-    }, 1000);
-  }, [replyContent]);
+    } catch (error: any) {
+      Alert.alert('Error', error.message || 'Failed to post reply');
+    } finally {
+      setIsReplying(false);
+    }
+  }, [replyContent, murmur, createMurmur, id, fetchReplies, fetchMurmur]);
 
   const formatDate = (date: Date) => {
     const now = new Date();
@@ -117,10 +144,19 @@ export default function MurmurDetailScreen() {
   const isOwnMurmur = user?.id === murmur.userId;
 
   return (
-    <KeyboardAvoidingView
-      style={styles.container}
-      behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
-    >
+    <SafeAreaView style={styles.safeArea}>
+      <KeyboardAvoidingView
+        style={styles.container}
+        behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+      >
+      {/* Back Button Header */}
+      <View style={styles.backButtonContainer}>
+        <TouchableOpacity onPress={() => router.back()} style={styles.backButton}>
+          <Text style={styles.backButtonText}>← Back</Text>
+        </TouchableOpacity>
+        <Text style={styles.headerTitle}>Murmur</Text>
+      </View>
+
       <ScrollView style={styles.scrollView}>
         {/* Murmur Header */}
         <View style={styles.header}>
@@ -155,34 +191,39 @@ export default function MurmurDetailScreen() {
         {/* Actions */}
         <View style={styles.actions}>
           <TouchableOpacity onPress={handleLike} style={styles.actionButton}>
-            <Text style={[styles.actionText, murmur.isLiked && styles.liked]}>
-              {murmur.isLiked ? '❤️' : '🤍'}
+            <Text style={[styles.actionText, murmur.isLikedByUser && styles.liked]}>
+              {murmur.isLikedByUser ? '❤️' : '🤍'}
             </Text>
-            <Text style={[styles.actionCount, murmur.isLiked && styles.liked]}>
+            <Text style={[styles.actionCount, murmur.isLikedByUser && styles.liked]}>
               {murmur.likesCount}
             </Text>
           </TouchableOpacity>
 
-          <TouchableOpacity style={styles.actionButton}>
+          <View style={styles.actionButton}>
             <Text style={styles.actionText}>💬</Text>
             <Text style={styles.actionCount}>{murmur.repliesCount}</Text>
-          </TouchableOpacity>
-
-          <TouchableOpacity style={styles.actionButton}>
-            <Text style={styles.actionText}>🔄</Text>
-            <Text style={styles.actionCount}>{murmur.retweetsCount}</Text>
-          </TouchableOpacity>
+          </View>
         </View>
 
         {/* Replies Section */}
         <View style={styles.repliesSection}>
-          <Text style={styles.repliesTitle}>Replies</Text>
-          {murmur.repliesCount === 0 ? (
-            <Text style={styles.noRepliesText}>No replies yet. Be the first to reply!</Text>
+          <Text style={styles.repliesTitle}>Replies ({murmur.repliesCount})</Text>
+          {repliesData?.isLoading && repliesData.replies.length === 0 ? (
+            <ActivityIndicator size="small" color="#1DA1F2" style={styles.repliesLoader} />
+          ) : repliesData?.replies && repliesData.replies.length > 0 ? (
+            repliesData.replies.map((reply) => (
+              <MurmurItem
+                key={reply.id}
+                murmur={reply}
+                onPress={() => router.push(`/murmur/${reply.id}` as any)}
+                onUserPress={handleUserPress}
+                onLike={(id) => likeMurmur(id)}
+                onDelete={handleDeleteReply}
+                showReplyButton={false}
+              />
+            ))
           ) : (
-            <Text style={styles.repliesPlaceholder}>
-              Replies will be shown here
-            </Text>
+            <Text style={styles.noRepliesText}>No replies yet. Be the first to reply!</Text>
           )}
         </View>
       </ScrollView>
@@ -214,14 +255,42 @@ export default function MurmurDetailScreen() {
           )}
         </TouchableOpacity>
       </View>
-    </KeyboardAvoidingView>
+      </KeyboardAvoidingView>
+    </SafeAreaView>
   );
 }
 
 const styles = StyleSheet.create({
+  safeArea: {
+    flex: 1,
+    backgroundColor: '#ffffff',
+  },
   container: {
     flex: 1,
     backgroundColor: '#ffffff',
+  },
+  backButtonContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingHorizontal: 16,
+    paddingVertical: 12,
+    borderBottomWidth: 1,
+    borderBottomColor: '#E1E8ED',
+    backgroundColor: '#ffffff',
+  },
+  backButton: {
+    padding: 4,
+  },
+  backButtonText: {
+    fontSize: 16,
+    color: '#1DA1F2',
+    fontWeight: '600',
+  },
+  headerTitle: {
+    fontSize: 18,
+    fontWeight: 'bold',
+    color: '#14171A',
+    marginLeft: 16,
   },
   scrollView: {
     flex: 1,
@@ -324,6 +393,9 @@ const styles = StyleSheet.create({
     color: '#657786',
     textAlign: 'center',
     fontStyle: 'italic',
+  },
+  repliesLoader: {
+    marginVertical: 20,
   },
   replyContainer: {
     flexDirection: 'row',

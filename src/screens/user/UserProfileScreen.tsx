@@ -91,8 +91,7 @@ const UserProfileScreen = () => {
     <MurmurItem
       murmur={item}
       onLike={handleLike}
-      onDelete={() => {}} // Can't delete other users' murmurs
-      onMurmurPress={handleMurmurPress}
+      onPress={() => handleMurmurPress(item)}
       onUserPress={handleUserPress}
     />
   ), [handleLike, handleMurmurPress, handleUserPress]);
@@ -223,8 +222,7 @@ const UserProfileScreen = () => {
                 key={murmur.id}
                 murmur={murmur}
                 onLike={handleLike}
-                onDelete={() => {}} // Can't delete other users' murmurs
-                onMurmurPress={handleMurmurPress}
+                onPress={() => handleMurmurPress(murmur)}
                 onUserPress={handleUserPress}
               />
             ))

@@ -151,7 +151,7 @@ const ProfileScreen = () => {
       murmur={item}
       onLike={handleLike}
       onDelete={handleDelete}
-      onMurmurPress={handleMurmurPress}
+      onPress={() => handleMurmurPress(item)}
       onUserPress={handleUserPress}
     />
   ), [handleLike, handleDelete, handleMurmurPress, handleUserPress]);
@@ -278,7 +278,7 @@ const ProfileScreen = () => {
                 murmur={murmur}
                 onLike={handleLike}
                 onDelete={handleDelete}
-                onMurmurPress={handleMurmurPress}
+                onPress={() => handleMurmurPress(murmur)}
                 onUserPress={handleUserPress}
               />
             ))
@@ -292,8 +292,7 @@ const ProfileScreen = () => {
                 key={murmur.id}
                 murmur={murmur}
                 onLike={handleLike}
-                onDelete={handleDelete}
-                onMurmurPress={handleMurmurPress}
+                onPress={() => handleMurmurPress(murmur)}
                 onUserPress={handleUserPress}
               />
             ))

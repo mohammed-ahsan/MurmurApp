@@ -14,7 +14,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter, useLocalSearchParams } from 'expo-router';
 
 // Hooks
-import { useMurmurs } from '../../store/hooks';
+import { useMurmurs, useAuth } from '../../store/hooks';
 
 const CreateMurmurScreen = () => {
   const [content, setContent] = useState('');
@@ -24,7 +24,8 @@ const CreateMurmurScreen = () => {
   const params = useLocalSearchParams<{ replyToMurmurId?: string }>();
   const replyToMurmurId = params.replyToMurmurId;
   
-  const { createMurmur } = useMurmurs();
+  const { createMurmur, fetchUserMurmurs, fetchTimeline } = useMurmurs();
+  const { user } = useAuth();
 
   const handleSubmit = useCallback(async () => {
     if (!content.trim()) {
@@ -40,7 +41,13 @@ const CreateMurmurScreen = () => {
     setIsSubmitting(true);
     
     try {
-      await createMurmur(content.trim());
+      await createMurmur({ content: content.trim(), replyToId: replyToMurmurId }).unwrap();
+      
+      // Refresh user's murmurs and timeline after creating
+      if (user?.id) {
+        fetchUserMurmurs({ userId: user.id, page: 1, limit: 10, refresh: true });
+        fetchTimeline({ page: 1, limit: 10, refresh: true });
+      }
       
       setContent('');
       router.back();
@@ -50,11 +57,11 @@ const CreateMurmurScreen = () => {
         replyToMurmurId ? 'Reply posted successfully!' : 'Murmur posted successfully!'
       );
     } catch (error: any) {
-      Alert.alert('Error', error.message || 'Failed to post murmur');
+      Alert.alert('Error', error.message || error || 'Failed to post murmur');
     } finally {
       setIsSubmitting(false);
     }
-  }, [content, replyToMurmurId, createMurmur, router]);
+  }, [content, replyToMurmurId, createMurmur, fetchUserMurmurs, fetchTimeline, user, router]);
 
   const handleCancel = useCallback(() => {
     if (content.trim()) {

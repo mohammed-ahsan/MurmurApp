@@ -55,7 +55,6 @@ export interface Murmur {
   content: string;
   likesCount: number;
   repliesCount: number;
-  retweetsCount: number;
   isDeleted: boolean;
   createdAt: string;
   updatedAt: string;
@@ -272,8 +271,16 @@ export const murmursAPI = {
     return response.data.data!.murmur;
   },
 
-  createMurmur: async (content: string): Promise<Murmur> => {
-    const response = await api.post<ApiResponse<{ murmur: Murmur }>>('/murmurs', { content });
+  getReplies: async (id: string, page: number = 1, limit: number = 10): Promise<{ replies: Murmur[]; pagination: PaginationInfo }> => {
+    const response = await api.get<ApiResponse<{ replies: Murmur[]; pagination: PaginationInfo }>>(
+      `/murmurs/${id}/replies`,
+      { params: { page, limit } }
+    );
+    return response.data.data!;
+  },
+
+  createMurmur: async (content: string, replyToId?: string): Promise<Murmur> => {
+    const response = await api.post<ApiResponse<{ murmur: Murmur }>>('/murmurs', { content, replyToId });
     return response.data.data!.murmur;
   },
 
